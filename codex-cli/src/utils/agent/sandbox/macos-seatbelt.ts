@@ -3,7 +3,7 @@ import type { SpawnOptions } from "child_process";
 
 import { exec } from "./raw-exec.js";
 import { log } from "../log.js";
-import { CONFIG_DIR } from "src/utils/config.js";
+import { CONFIG_DIR } from "../../config";
 
 function getCommonRoots() {
   return [

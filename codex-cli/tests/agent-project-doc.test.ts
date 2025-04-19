@@ -81,7 +81,7 @@ vi.mock("../src/utils/agent/log.js", () => ({
 // ---------------------------------------------------------------------------
 
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
-import { loadConfig } from "../src/utils/config.js";
+import { loadConfig } from "../src/utils/config";
 
 // ---------------------------------------------------------------------------
 

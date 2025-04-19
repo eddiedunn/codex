@@ -55,6 +55,7 @@
     "@types/shell-quote": "^1.7.5",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
+    "@vitest/ui": "^3.1.1",
     "esbuild": "^0.25.2",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-react": "^7.32.2",
@@ -65,7 +66,7 @@
     "punycode": "^2.3.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.3",
-    "vitest": "^3.0.9",
+    "vitest": "^3.1.1",
     "whatwg-url": "^14.2.0"
   },
   "resolutions": {

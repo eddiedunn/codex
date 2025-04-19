@@ -47,6 +47,7 @@ describe("AgentLoop – generic uncaught error handling", () => {
         try {
           // eslint-disable-next-line no-console
           console.error("[AgentLoop] Unexpected error:", err);
+          // @ts-expect-error - Accessing private member for test purposes
           this.onItem({
             id: `error-${Date.now()}`,
             type: "message",
@@ -62,6 +63,7 @@ describe("AgentLoop – generic uncaught error handling", () => {
           // eslint-disable-next-line no-console
           console.error("[AgentLoop] Error while handling unexpected error:", loggingErr);
         }
+        // @ts-expect-error - Accessing private member for test purposes
         this.onLoading(false);
         return;
       }
@@ -102,6 +104,7 @@ describe("AgentLoop – generic uncaught error handling", () => {
         try {
           // eslint-disable-next-line no-console
           console.error("[AgentLoop] Unexpected error:", err);
+          // @ts-expect-error - Accessing private member for test purposes
           this.onItem({
             id: `error-${Date.now()}`,
             type: "message",
@@ -117,6 +120,7 @@ describe("AgentLoop – generic uncaught error handling", () => {
           // eslint-disable-next-line no-console
           console.error("[AgentLoop] Error while handling unexpected error:", loggingErr);
         }
+        // @ts-expect-error - Accessing private member for test purposes
         this.onLoading(false);
         return;
       }

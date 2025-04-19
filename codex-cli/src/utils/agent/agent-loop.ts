@@ -1,23 +1,17 @@
 import type { ReviewDecision } from "./review.js";
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
-import type { AppConfig } from "../config.js";
+import type { AppConfig } from "../config";
 import type {
   ResponseFunctionToolCall,
   ResponseInputItem,
   ResponseItem,
 } from "openai/resources/responses/responses.mjs";
 import type { Reasoning } from "openai/resources.mjs";
+import type { ExecInput } from "./sandbox/interface";
 
 import { log, isLoggingEnabled } from "./log.js";
-import { OPENAI_BASE_URL, OPENAI_TIMEOUT_MS } from "../config.js";
-import { parseToolCallArguments } from "../parsers.js";
-import {
-  ORIGIN,
-  CLI_VERSION,
-  getSessionId,
-  setCurrentModel,
-  setSessionId,
-} from "../session.js";
+import { OPENAI_BASE_URL, OPENAI_TIMEOUT_MS } from "../config";
+import { ORIGIN, CLI_VERSION, getSessionId, setCurrentModel, setSessionId } from "../session.js";
 import { handleExecCommand } from "./handle-exec-command.js";
 import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
@@ -50,6 +44,7 @@ type AgentLoopParams = {
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
   onLastResponseId: (lastResponseId: string) => void;
+  invokeMcpTool?: (toolName: string, params: Record<string, any>) => Promise<any>;
 };
 
 export class AgentLoop {
@@ -57,6 +52,7 @@ export class AgentLoop {
   private instructions?: string;
   private approvalPolicy: ApprovalPolicy;
   private config: AppConfig;
+  private invokeMcpTool: (toolName: string, params: Record<string, any>) => Promise<any>;
 
   // Using `InstanceType<typeof OpenAI>` sidesteps typing issues with the OpenAI package under
   // the TS 5+ `moduleResolution=bundler` setup. OpenAI client instance. We keep the concrete
@@ -220,6 +216,7 @@ export class AgentLoop {
     onLoading,
     getCommandConfirmation,
     onLastResponseId,
+    invokeMcpTool,
   }: AgentLoopParams & { config?: AppConfig }) {
     this.model = model;
     this.instructions = instructions;
@@ -240,6 +237,11 @@ export class AgentLoop {
     this.onLoading = onLoading;
     this.getCommandConfirmation = getCommandConfirmation;
     this.onLastResponseId = onLastResponseId;
+    this.invokeMcpTool = invokeMcpTool ?? (async (toolName, params) => {
+      // fallback to dynamic import of real implementation
+      const mod = await import("./mcp-client.js");
+      return mod.invokeMcpTool(toolName, params);
+    });
     this.sessionId = getSessionId() || randomUUID().replaceAll("-", "");
     // Configure OpenAI client with optional timeout (ms) from environment
     const timeoutMs = OPENAI_TIMEOUT_MS;
@@ -276,6 +278,7 @@ export class AgentLoop {
   private async handleFunctionCall(
     item: ResponseFunctionToolCall,
   ): Promise<Array<ResponseInputItem>> {
+    console.log("[ALWAYS DEBUG] Entered handleFunctionCall with item:", item);
     // If the agent has been canceled in the meantime we should not perform any
     // additional work. Returning an empty array ensures that we neither execute
     // the requested tool call nor enqueue any follow‑up input items. This keeps
@@ -303,43 +306,47 @@ export class AgentLoop {
       : // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (item as any).name;
 
-    const rawArguments: string | undefined = isChatStyle
+    const callId: string = isChatStyle
       ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (item as any).function?.arguments
+        (item as any).function?.call_id
       : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (item as any).arguments;
+        (item as any).call_id;
 
-    // The OpenAI "function_call" item may have either `call_id` (responses
-    // endpoint) or `id` (chat endpoint).  Prefer `call_id` if present but fall
-    // back to `id` to remain compatible.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const callId: string = (item as any).call_id ?? (item as any).id;
+    console.log("[ALWAYS DEBUG] item.arguments type:", typeof item.arguments, "value:", item.arguments);
+    let parsedArgs: Record<string, any> = {};
+    if (typeof item.arguments === "string") {
+      console.log("[ALWAYS DEBUG] Taking string branch");
+      try {
+        parsedArgs = JSON.parse(item.arguments);
+        console.log("[ALWAYS DEBUG] Parsed MCP arguments (string):", parsedArgs);
+      } catch (e) {
+        console.log("[ALWAYS DEBUG] ENTERED ARGUMENT PARSE CATCH BLOCK");
+        console.log("[ALWAYS DEBUG] MCP argument parse error (string):", item.arguments, e);
+        const outputItem: any = { type: "function_call_output", call_id: item.id };
+        outputItem.output = JSON.stringify({ error: `invalid arguments: ${item.arguments}` });
+        return [outputItem];
+      }
+    } else if (typeof item.arguments === "object" && item.arguments !== null && !Array.isArray(item.arguments)) {
+      console.log("[ALWAYS DEBUG] Taking object branch");
+      parsedArgs = item.arguments;
+      console.log("[ALWAYS DEBUG] Parsed MCP arguments (object):", parsedArgs);
+    } else {
+      console.log("[ALWAYS DEBUG] Taking neither string nor object branch");
+      console.log("[ALWAYS DEBUG] MCP arguments were neither string nor object:", item.arguments);
+      const outputItem: any = { type: "function_call_output", call_id: item.id };
+      outputItem.output = JSON.stringify({ error: `invalid arguments: ${item.arguments}` });
+      return [outputItem];
+    }
 
-    const args = parseToolCallArguments(rawArguments ?? "{}");
     if (isLoggingEnabled()) {
       log(
         `handleFunctionCall(): name=${
           name ?? "undefined"
-        } callId=${callId} args=${rawArguments}`,
+        } callId=${callId} args=${JSON.stringify(parsedArgs)}`,
       );
     }
 
-    if (args == null) {
-      const outputItem: ResponseInputItem.FunctionCallOutput = {
-        type: "function_call_output",
-        call_id: item.call_id,
-        output: `invalid arguments: ${rawArguments}`,
-      };
-      return [outputItem];
-    }
-
-    const outputItem: ResponseInputItem.FunctionCallOutput = {
-      type: "function_call_output",
-      // `call_id` is mandatory – ensure we never send `undefined` which would
-      // trigger the "No tool output found…" 400 from the API.
-      call_id: callId,
-      output: "no function found",
-    };
+    const outputItem: any = { type: "function_call_output", call_id: item.id };
 
     // We intentionally *do not* remove this `callId` from the `pendingAborts`
     // set right away.  The output produced below is only queued up for the
@@ -356,13 +363,27 @@ export class AgentLoop {
     const additionalItems: Array<ResponseInputItem> = [];
 
     // TODO: allow arbitrary function calls (beyond shell/container.exec)
-    if (name === "container.exec" || name === "shell") {
+    if (typeof item.name === "string" && item.name.startsWith("mcp.")) {
+      try {
+        const toolName = item.name.slice(4);
+        console.log("[ALWAYS DEBUG] About to call MCP tool:", toolName, parsedArgs);
+        const result = await this.invokeMcpTool(toolName, parsedArgs);
+        console.log("[ALWAYS DEBUG] MCP tool call result:", result);
+        outputItem.output = JSON.stringify(result);
+      } catch (err) {
+        console.error("invokeMcpTool error", err);
+        outputItem.output = JSON.stringify({ error: String(err) });
+      }
+      return [outputItem, ...additionalItems];
+    }
+
+    if (item.name === "container.exec" || item.name === "shell") {
       const {
         outputText,
         metadata,
         additionalItems: additionalItemsFromExec,
       } = await handleExecCommand(
-        args,
+        parsedArgs as ExecInput,
         this.config,
         this.approvalPolicy,
         this.getCommandConfirmation,
