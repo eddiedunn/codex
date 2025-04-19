@@ -15,6 +15,9 @@ import { ORIGIN, CLI_VERSION, getSessionId, setCurrentModel, setSessionId } from
 import { handleExecCommand } from "./handle-exec-command.js";
 import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
+import { loadMcpConfig } from "./load-mcp-config";
+import os from "os";
+import path from "path";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -1062,6 +1065,37 @@ export class AgentLoop {
       emitItem(item as ResponseItem);
     }
     return turnInput;
+  }
+}
+
+function getDefaultMcpConfigPath(): string {
+  return path.join(os.homedir(), ".codex", "mcp_servers.json");
+}
+
+function discoverMcpConfigPath(): string {
+  // 1. Env override
+  if (process.env["MCP_CONFIG_PATH"]) return process.env["MCP_CONFIG_PATH"]!;
+  // 2. CLI flag override
+  const cliIdx = process.argv.indexOf("--mcp-config");
+  if (cliIdx !== -1 && process.argv.length > cliIdx + 1) {
+    return process.argv[cliIdx + 1]!;
+  }
+  // 3. Default location
+  return getDefaultMcpConfigPath();
+}
+
+let mcpConfig: unknown;
+try {
+  mcpConfig = loadMcpConfig(discoverMcpConfigPath());
+} catch (err) {
+  // Optionally, fallback to local file for compatibility
+  try {
+    mcpConfig = loadMcpConfig(path.resolve(process.cwd(), "claude_desktop_config.json"));
+  } catch (e) {
+    mcpConfig = undefined;
+    if (process.env["CLI_DEBUG"] || process.env["NODE_ENV"] === "development") {
+      console.warn("[MCP] No valid MCP config found:", err, e);
+    }
   }
 }
 

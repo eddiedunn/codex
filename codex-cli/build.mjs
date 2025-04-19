@@ -66,7 +66,7 @@ esbuild
   .build({
     entryPoints: ["src/cli.tsx"],
     bundle: true,
-    format: "esm",
+    format: "esm", // Switched back to ESM for compatibility with import.meta and top-level await
     platform: "node",
     tsconfig: "tsconfig.json",
     outfile: isDevBuild ? "dist/cli-dev.js" : "dist/cli.js",
@@ -74,5 +74,6 @@ esbuild
     sourcemap: isDevBuild ? "inline" : true,
     plugins,
     inject: ["./require-shim.js"],
+    external: ["@modelcontextprotocol/sdk"],
   })
   .catch(() => process.exit(1));

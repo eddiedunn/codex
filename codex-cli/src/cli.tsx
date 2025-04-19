@@ -46,6 +46,7 @@ const cli = meow(
   Usage
     $ codex [options] <prompt>
     $ codex completion <bash|zsh|fish>
+    $ codex mcp-tools
 
   Options
     -h, --help                 Show usage and exit
@@ -169,6 +170,26 @@ complete -c codex -a '(_fish_complete_path)' -d 'file path'`,
   console.log(script);
   process.exit(0);
 }
+
+if (cli.input[0] === "mcp-tools") {
+  const { listMcpTools } = await import("./utils/agent/mcp-client");
+  try {
+    const tools = await listMcpTools();
+    if (!tools || tools.length === 0) {
+      console.log("No MCP tools available.");
+    } else {
+      console.log("Available MCP Tools:");
+      for (const tool of tools) {
+        console.log(`- ${tool.name}${tool.description ? ': ' + tool.description : ''}`);
+      }
+    }
+    process.exit(0);
+  } catch (err) {
+    console.error("Failed to list MCP tools:", err);
+    process.exit(1);
+  }
+}
+
 // Show help if requested
 if (cli.flags.help) {
   cli.showHelp();

@@ -1,0 +1,42 @@
+{
+  "mcpServers": {
+    "sqlite": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "./servers/sqlite",
+        "run",
+        "mcp-server-sqlite",
+        "--db-path",
+        "./data/NEXUS_PRIME.db"
+      ]
+    },
+    "filesystem": {
+      "command": "node",
+      "args": [
+        "./node_modules/@modelcontextprotocol/server-filesystem/dist/index.js",
+        "./data",
+        "/",
+        "D:/"
+      ]
+    },
+    "github": {
+      "command": "node",
+      "args": [
+        "./node_modules/@modelcontextprotocol/server-github/dist/index.js"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "your-token-here"
+      }
+    },
+    "brave-search": {
+      "command": "node",
+      "args": [
+        "./node_modules/@modelcontextprotocol/server-brave-search/dist/index.js"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "your-key-here"
+      }
+    }
+  }
+}
