@@ -7,7 +7,7 @@ import type {
   ResponseItem,
 } from "openai/resources/responses/responses.mjs";
 import type { Reasoning } from "openai/resources.mjs";
-import type { ExecInput } from "./sandbox/interface";
+import type { ExecInput } from "./sandbox/interface.js";
 
 import { log, isLoggingEnabled } from "./log.js";
 import { OPENAI_BASE_URL, OPENAI_TIMEOUT_MS } from "../config";
