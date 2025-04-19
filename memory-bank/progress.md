@@ -13,6 +13,9 @@
   - Verifies correct output for available tools (mocked response)
   - Handles empty tool list
   - Handles error cases gracefully (prints error, exits with code 1)
+- Auto-launch logic for all MCP servers in config runs on agent/CLI startup (see `auto-launch-mcp.ts`).
+- Robust, SDK-free tests for auto-launch logic (mocking `child_process.spawn`, patchable config via exported setter).
+- Strict separation between process management and SDK logic is enforced throughout the codebase.
 
 ## What's Left
 - MCP tool invocation logic
@@ -22,6 +25,8 @@
 - Document usage in README/product docs.
 - Integrate MCP tool discovery tests with CI if not already
 - Expand tests for edge cases (e.g., malformed tool data)
+- Tool/resource aggregation from MCP servers for LLM wiring (next major step).
+- CLI/config options for selective or opt-out server launching (optional enhancement).
 
 ## MCP Client Integration: Progress Update (April 19, 2025)
 
@@ -61,10 +66,14 @@
 ## Known Issues
 - MCP SDK is CJS and not ESM-compatible, but this does not block mocking in minimal reproductions.
 - User frustration is high due to repeated attempts and persistent blockers.
+- None for auto-launch; all test and runtime blockers resolved.
+- Maintain vigilance for SDK import creep into process management code.
 
 ## Current Status
 - Preparing to add MCP integration on a new feature branch
+- All auto-launch logic and tests pass (see test suite for `auto-launch-mcp.ts`).
+- Memory bank and documentation updated with new patterns and decisions.
 
 ---
 
-*Review this progress and blockers before further work on MCP client test integration or mocking.*
+*Last updated: 2025-04-19 18:15 EDT*

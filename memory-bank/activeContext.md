@@ -1,4 +1,4 @@
-# Active Context
+# Active Context: MCP Auto-Launch Integration (April 19, 2025)
 
 ## MCP Client Test Integration: Debugging Session (April 19, 2025)
 
@@ -24,6 +24,28 @@
 3. Optionally, upgrade Vitest to the latest version for improved isolation and mocking.
 4. Summarize all findings and recommendations in the memory bank for future reference.
 
+## MCP Auto-Launch Integration
+
+### Current Focus
+- Implemented and tested auto-launch logic for all MCP servers defined in config on agent/CLI startup.
+- Ensured logic is fully decoupled from the MCP SDK (process management and SDK/tool discovery are separate concerns).
+- All tests for auto-launch logic pass and are robust (mocking `child_process.spawn`, patchable config for test isolation).
+
+### Recent Changes
+- Added `auto-launch-mcp.ts` for process management.
+- Added a test-only setter for config state (`_setMcpConfigForTest`).
+- Updated tests to use only ESM/TS imports and the setter, no `require` hacks.
+
+### Next Steps
+- Proceed to tool/resource aggregation and LLM wiring after documentation.
+- Maintain strict separation between process management and SDK logic in all future work.
+
+### Decisions/Patterns
+- Never import SDK or `mcp-client.ts` in process management or config logic/tests.
+- Always provide test hooks (setters/mocks) for module state when needed.
+
 ---
 
 *This context should be reviewed before any further MCP client integration or mocking work. See progress.md for what works and what remains blocked.*
+
+*Last updated: 2025-04-19 18:15 EDT*
