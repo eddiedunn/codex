@@ -62,7 +62,7 @@ export class AgentLoop {
   // the TS 5+ `moduleResolution=bundler` setup. OpenAI client instance. We keep the concrete
   // type to avoid sprinkling `any` across the implementation while still allowing paths where
   // the OpenAI SDK types may not perfectly match. The `typeof OpenAI` pattern captures the
-  // instance shape without resorting to `any`.
+  // instance shape without resorting to `false`.
   private oai: OpenAI;
 
   private onItem: (item: ResponseItem) => void;
@@ -867,11 +867,7 @@ export class AgentLoop {
       // End of main logic. The corresponding catch block for the wrapper at the
       // start of this method follows next.
     } catch (err) {
-      // Handle known transient network/streaming issues so they do not crash the
-      // CLI. We currently match Node/undici's `ERR_STREAM_PREMATURE_CLOSE`
-      // error which manifests when the HTTP/2 stream terminates unexpectedly
-      // (e.g. during brief network hiccups).
-
+      // Special handling for premature close (e.g., ERR_STREAM_PREMATURE_CLOSE)
       const isPrematureClose =
         err instanceof Error &&
         // eslint-disable-next-line
@@ -911,7 +907,6 @@ export class AgentLoop {
       // If matched we emit a single system message to inform the user and
       // resolve gracefully so callers can choose to retry.
       // -------------------------------------------------------------------
-
       const NETWORK_ERRNOS = new Set([
         "ECONNRESET",
         "ECONNREFUSED",
@@ -970,8 +965,6 @@ export class AgentLoop {
 
       if (isNetworkOrServerError) {
         try {
-          const msgText =
-            "⚠️  Network error while contacting OpenAI. Please check your connection and try again.";
           this.onItem({
             id: `error-${Date.now()}`,
             type: "message",
@@ -979,19 +972,46 @@ export class AgentLoop {
             content: [
               {
                 type: "input_text",
-                text: msgText,
+                text: `⚠️  Network error: ${
+                  err instanceof Error ? err.message : String(err)
+                }. Please check your connection or try again later.`,
               },
             ],
           });
         } catch {
-          /* best‑effort */
+          /* best effort */
         }
         this.onLoading(false);
         return;
       }
 
-      // Re‑throw all other errors so upstream handlers can decide what to do.
-      throw err;
+      // --- NEW: Generic catch-all to ensure no unhandled errors crash the app ---
+      try {
+        // eslint-disable-next-line no-console
+        console.error("[AgentLoop] Unexpected error:", err);
+        this.onItem({
+          id: `error-${Date.now()}`,
+          type: "message",
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text: `⚠️  Unexpected error: ${
+                err instanceof Error ? err.message : String(err)
+              }. Please try again or contact support if the problem persists.`,
+            },
+          ],
+        });
+      } catch (loggingErr) {
+        // eslint-disable-next-line no-console
+        console.error(
+          "[AgentLoop] Error while handling unexpected error:",
+          loggingErr,
+        );
+        /* best effort */
+      }
+      this.onLoading(false);
+      return;
     }
   }
 
