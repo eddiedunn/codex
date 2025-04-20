@@ -1,4 +1,7 @@
-<h1 align="center">OpenAI Codex CLI</h1>
+[EVENT] Child process spawned
+[STDOUT] {"method":"notifications/message","params":{"level":"critical","data":"Critical-level message"},"jsonrpc":"2.0"}
+[STDOUT] {"method":"notifications/message","params":{"level":"debug","data":"Debug-level message"},"jsonrpc":"2.0"}
+[STDOUT] {"method":"notifications/message","params":{"level":"critical","data":"Critical-level message"},"jsonrpc":"2.0"}<h1 align="center">OpenAI Codex CLI</h1>
 <p align="center">Lightweight coding agent that runs in your terminal</p>
 
 <p align="center"><code>npm i -g @openai/codex</code></p>
@@ -36,6 +39,32 @@
 - [License](#license)
 
 </details>
+
+---
+
+## MCP Client Transport Modes
+
+Codex CLI supports two MCP client transport modes for connecting to Model Context Protocol servers:
+
+| Transport | Env Variable | Description |
+|-----------|--------------|-------------|
+| HTTP/SSE  | `MCP_TRANSPORT=http` (default) | Connects to MCP servers via HTTP(S) using Server-Sent Events (SSE). Requires `MCP_SERVER_URL` or a valid MCP config. |
+| stdio     | `MCP_TRANSPORT=stdio`          | Connects to MCP servers via stdio (process pipes). Uses the first server entry in your MCP config for command/args. |
+
+### Usage
+
+- **HTTP/SSE (default):**
+  ```sh
+  node dist/cli.js
+  # or
+  MCP_TRANSPORT=http node dist/cli.js
+  ```
+- **stdio:**
+  ```sh
+  MCP_TRANSPORT=stdio node dist/cli.js
+  ```
+
+> The stdio mode is useful for in-process or local server communication. Make sure your MCP config (`.codex/mcp_servers.json`) has a valid server entry with the correct command and arguments.
 
 ---
 

@@ -1,5 +1,5 @@
 import type { ReviewDecision } from "./review.js";
-import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
+import type { ApplyPatchCommand } from "../../approvals.js";
 import type { AppConfig } from "../config";
 import type {
   ResponseFunctionToolCall,
@@ -18,6 +18,13 @@ import OpenAI, { APIConnectionTimeoutError } from "openai";
 import { loadMcpConfig } from "./load-mcp-config";
 import os from "os";
 import path from "path";
+import {
+  buildMcpToolRegistry as realBuildMcpToolRegistry,
+  generateMcpPromptSummary as realGenerateMcpPromptSummary,
+  getMcpToolExposureMode,
+  McpToolRegistry,
+  McpToolExposureMode,
+} from "./mcp-tool-exposure";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -30,6 +37,11 @@ export type CommandConfirmation = {
   applyPatch?: ApplyPatchCommand | undefined;
   customDenyMessage?: string;
 };
+
+export type ApprovalPolicy =
+  | "suggest"
+  | "auto-edit"
+  | "full-auto";
 
 const alreadyProcessedResponses = new Set();
 
@@ -48,6 +60,8 @@ type AgentLoopParams = {
   ) => Promise<CommandConfirmation>;
   onLastResponseId: (lastResponseId: string) => void;
   invokeMcpTool?: (toolName: string, params: Record<string, any>) => Promise<any>;
+  buildMcpToolRegistry?: () => Promise<McpToolRegistry>;
+  generateMcpPromptSummary?: (registry: McpToolRegistry | null) => string;
 };
 
 export class AgentLoop {
@@ -55,7 +69,6 @@ export class AgentLoop {
   private instructions?: string;
   private approvalPolicy: ApprovalPolicy;
   private config: AppConfig;
-  private invokeMcpTool: (toolName: string, params: Record<string, any>) => Promise<any>;
 
   // Using `InstanceType<typeof OpenAI>` sidesteps typing issues with the OpenAI package under
   // the TS 5+ `moduleResolution=bundler` setup. OpenAI client instance. We keep the concrete
@@ -97,6 +110,12 @@ export class AgentLoop {
   private terminated = false;
   /** Master abort controller – fires when terminate() is invoked. */
   private readonly hardAbort = new AbortController();
+
+  private readonly buildMcpToolRegistry: () => Promise<McpToolRegistry>;
+  private readonly generateMcpPromptSummary: (registry: McpToolRegistry | null) => string;
+  private mcpToolRegistry: McpToolRegistry | null = null;
+  private mcpPromptSummary: string | null = null;
+  protected mcpToolExposureMode: McpToolExposureMode = getMcpToolExposureMode();
 
   /**
    * Abort the ongoing request/stream, if any. This allows callers (typically
@@ -219,8 +238,9 @@ export class AgentLoop {
     onLoading,
     getCommandConfirmation,
     onLastResponseId,
-    invokeMcpTool,
-  }: AgentLoopParams & { config?: AppConfig }) {
+    buildMcpToolRegistry = realBuildMcpToolRegistry,
+    generateMcpPromptSummary = realGenerateMcpPromptSummary,
+  }: AgentLoopParams) {
     this.model = model;
     this.instructions = instructions;
     this.approvalPolicy = approvalPolicy;
@@ -240,11 +260,6 @@ export class AgentLoop {
     this.onLoading = onLoading;
     this.getCommandConfirmation = getCommandConfirmation;
     this.onLastResponseId = onLastResponseId;
-    this.invokeMcpTool = invokeMcpTool ?? (async (toolName, params) => {
-      // fallback to dynamic import of real implementation
-      const mod = await import("./mcp-client.js");
-      return mod.invokeMcpTool(toolName, params);
-    });
     this.sessionId = getSessionId() || randomUUID().replaceAll("-", "");
     // Configure OpenAI client with optional timeout (ms) from environment
     const timeoutMs = OPENAI_TIMEOUT_MS;
@@ -276,6 +291,57 @@ export class AgentLoop {
       () => this.execAbortController?.abort(),
       { once: true },
     );
+
+    this.buildMcpToolRegistry = buildMcpToolRegistry;
+    this.generateMcpPromptSummary = generateMcpPromptSummary;
+  }
+
+  /**
+   * Initialize MCP tools according to the configured exposure mode.
+   */
+  public async initMcpTools() {
+    switch (this.mcpToolExposureMode) {
+      case "registry": {
+        this.mcpToolRegistry = await this.buildMcpToolRegistry();
+        this.mcpPromptSummary = null;
+        break;
+      }
+      case "prompt": {
+        this.mcpToolRegistry = null;
+        this.mcpPromptSummary = this.generateMcpPromptSummary(null);
+        break;
+      }
+      case "hybrid": {
+        this.mcpToolRegistry = await this.buildMcpToolRegistry();
+        this.mcpPromptSummary = this.generateMcpPromptSummary(this.mcpToolRegistry);
+        break;
+      }
+      case "bypass":
+      default: {
+        this.mcpToolRegistry = null;
+        this.mcpPromptSummary = null;
+      }
+    }
+  }
+
+  /**
+   * Look up MCP tool in registry and invoke.
+   */
+  public async invokeMcpTool(toolName: string, params: Record<string, any>): Promise<any> {
+    if (this.mcpToolExposureMode === "bypass") {
+      console.warn(`[MCP] Tool call '${toolName}' ignored: MCP tool exposure is bypassed (MCP_TOOL_EXPOSURE_MODE=bypass)`);
+      return { error: "Tool calls are disabled in MCP bypass mode.", tool: toolName };
+    }
+    if (this.mcpToolExposureMode === "registry" || this.mcpToolExposureMode === "hybrid") {
+      if (!this.mcpToolRegistry) throw new Error("MCP tool registry not initialized");
+      const entry = this.mcpToolRegistry[toolName];
+      if (!entry) throw new Error(`Tool '${toolName}' not found in MCP registry`);
+      const mod = await import("./mcp-client.js");
+      return mod.invokeMcpTool(toolName, params);
+    }
+    // fallback (prompt only): use default implementation
+    const mod = await import("./mcp-client.js");
+    return mod.invokeMcpTool(toolName, params);
   }
 
   private async handleFunctionCall(
@@ -722,6 +788,7 @@ export class AgentLoop {
               this.onLoading(false);
               return;
             }
+
             throw error;
           }
         }
@@ -1066,6 +1133,28 @@ export class AgentLoop {
     }
     return turnInput;
   }
+
+  /**
+   * Returns the MCP prompt summary (if any).
+   */
+  public getMcpPromptSummary(): string | null {
+    return this.mcpPromptSummary;
+  }
+
+  /**
+   * Returns the MCP tool registry (if any).
+   */
+  public getMcpToolRegistry(): McpToolRegistry | null {
+    return this.mcpToolRegistry;
+  }
+
+  /**
+   * Test-only setter for MCP tool exposure mode.
+   * @internal
+   */
+  public setMcpToolExposureMode(mode: McpToolExposureMode) {
+    this.mcpToolExposureMode = mode;
+  }
 }
 
 function getDefaultMcpConfigPath(): string {
@@ -1098,6 +1187,9 @@ try {
     }
   }
 }
+
+// Removed unused export of mcpConfig to resolve lint warning
+// export { mcpConfig };
 
 const prefix = `You are operating as and within the Codex CLI, a terminal-based agentic coding assistant built by OpenAI. It wraps OpenAI models to enable natural language interaction with a local codebase. You are expected to be precise, safe, and helpful.
 

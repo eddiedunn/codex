@@ -44,8 +44,28 @@
 - Never import SDK or `mcp-client.ts` in process management or config logic/tests.
 - Always provide test hooks (setters/mocks) for module state when needed.
 
+## MCP Tool/Resource Aggregation Pattern (April 19, 2025)
+
+### Current Focus
+- Decoupled tool/resource aggregation logic from all MCP SDK and client dependencies.
+- Implemented `aggregateMcpToolsGeneric` (SDK-free) with a testable, injectable client factory.
+- All aggregation logic is now fully mockable and robustly tested.
+
+### Recent Changes
+- Created `aggregate-mcp-tools.ts` for SDK-free aggregation.
+- Tests for aggregation logic run without SDK, using only mocks.
+
+### Next Steps
+- Wire up aggregation in the CLI/agent using the real MCP client and config.
+- Integrate aggregated tools/resources with the LLM tool registry for dynamic invocation.
+
+### Decisions/Patterns
+- Always separate aggregation logic from SDK-dependent code for testability.
+- Use dependency injection (client factory) for all network/service access in aggregation.
+- Maintain this separation for all future tool/resource/agent integrations.
+
 ---
 
 *This context should be reviewed before any further MCP client integration or mocking work. See progress.md for what works and what remains blocked.*
 
-*Last updated: 2025-04-19 18:15 EDT*
+*Last updated: 2025-04-19 18:39 EDT*
