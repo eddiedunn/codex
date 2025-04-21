@@ -1,17 +1,13 @@
 {
   "compilerOptions": {
     "outDir": "dist",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "target": "esnext",
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ES2022" // Node.js 18
-    ],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "types": ["node", "vitest"],
     "baseUrl": "./",
-    "resolveJsonModule": false, // ESM doesn't yet support JSON modules.
+    "resolveJsonModule": true,
     "jsx": "react",
     "declaration": true,
     "newLine": "lf",
@@ -28,7 +24,10 @@
     "noEmitOnError": true,
     "useDefineForClassFields": true,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "downlevelIteration": true
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests", "bin"]
 }

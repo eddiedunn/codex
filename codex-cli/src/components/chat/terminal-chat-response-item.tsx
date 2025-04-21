@@ -1,3 +1,4 @@
+import type { OverlayModeType } from "./terminal-chat";
 import type { TerminalRendererOptions } from "marked-terminal";
 import type {
   ResponseFunctionToolCallItem,
@@ -14,18 +15,25 @@ import chalk, { type ForegroundColorName } from "chalk";
 import { Box, Text } from "ink";
 import { parse, setOptions } from "marked";
 import TerminalRenderer from "marked-terminal";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 
 export default function TerminalChatResponseItem({
   item,
   fullStdout = false,
+  setOverlayMode,
 }: {
   item: ResponseItem;
   fullStdout?: boolean;
+  setOverlayMode?: React.Dispatch<React.SetStateAction<OverlayModeType>>;
 }): React.ReactElement {
   switch (item.type) {
     case "message":
-      return <TerminalChatResponseMessage message={item} />;
+      return (
+        <TerminalChatResponseMessage
+          setOverlayMode={setOverlayMode}
+          message={item}
+        />
+      );
     case "function_call":
       return <TerminalChatResponseToolCall message={item} />;
     case "function_call_output":
@@ -72,30 +80,13 @@ export function TerminalChatResponseReasoning({
 }: {
   message: ResponseReasoningItem & { duration_ms?: number };
 }): React.ReactElement | null {
-  // prefer the real duration if present
-  const thinkingTime = message.duration_ms
-    ? Math.round(message.duration_ms / 1000)
-    : Math.max(
-        1,
-        Math.ceil(
-          (message.summary || [])
-            .map((t) => t.text.length)
-            .reduce((a, b) => a + b, 0) / 300,
-        ),
-      );
-  if (thinkingTime <= 0) {
+  // Only render when there is a reasoning summary
+  if (!message.summary || message.summary.length === 0) {
     return null;
   }
-
   return (
     <Box gap={1} flexDirection="column">
-      <Box gap={1}>
-        <Text bold color="magenta">
-          thinking
-        </Text>
-        <Text dimColor>for {thinkingTime}s</Text>
-      </Box>
-      {message.summary?.map((summary, key) => {
+      {message.summary.map((summary, key) => {
         const s = summary as { headline?: string; text: string };
         return (
           <Box key={key} flexDirection="column">
@@ -115,9 +106,23 @@ const colorsByRole: Record<string, ForegroundColorName> = {
 
 function TerminalChatResponseMessage({
   message,
+  setOverlayMode,
 }: {
   message: ResponseInputMessageItem | ResponseOutputMessage;
+  setOverlayMode?: React.Dispatch<React.SetStateAction<OverlayModeType>>;
 }) {
+  // auto switch to model mode if the system message contains "has been deprecated"
+  useEffect(() => {
+    if (message.role === "system") {
+      const systemMessage = message.content.find(
+        (c) => c.type === "input_text",
+      )?.text;
+      if (systemMessage?.includes("has been deprecated")) {
+        setOverlayMode?.("model");
+      }
+    }
+  }, [message, setOverlayMode]);
+
   return (
     <Box flexDirection="column">
       <Text bold color={colorsByRole[message.role] || "gray"}>

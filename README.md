@@ -1,7 +1,4 @@
-[EVENT] Child process spawned
-[STDOUT] {"method":"notifications/message","params":{"level":"critical","data":"Critical-level message"},"jsonrpc":"2.0"}
-[STDOUT] {"method":"notifications/message","params":{"level":"debug","data":"Debug-level message"},"jsonrpc":"2.0"}
-[STDOUT] {"method":"notifications/message","params":{"level":"critical","data":"Critical-level message"},"jsonrpc":"2.0"}<h1 align="center">OpenAI Codex CLI</h1>
+<h1 align="center">OpenAI Codex CLI</h1>
 <p align="center">Lightweight coding agent that runs in your terminal</p>
 
 <p align="center"><code>npm i -g @openai/codex</code></p>
@@ -13,6 +10,7 @@
 <details>
 <summary><strong>Table&nbsp;of&nbsp;Contents</strong></summary>
 
+- [Experimental Technology Disclaimer](#experimental-technology-disclaimer)
 - [Quickstart](#quickstart)
 - [Why Codex?](#whycodex)
 - [Security Model \& Permissions](#securitymodelpermissions)
@@ -25,18 +23,21 @@
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [FAQ](#faq)
+- [Funding Opportunity](#funding-opportunity)
 - [Contributing](#contributing)
   - [Development workflow](#development-workflow)
+    - [Nix Flake Development](#nix-flake-development)
   - [Writing high‑impact code changes](#writing-highimpact-code-changes)
   - [Opening a pull request](#opening-a-pull-request)
   - [Review process](#review-process)
   - [Community values](#community-values)
   - [Getting help](#getting-help)
-  - [Developer Certificate of Origin (DCO)](#developer-certificate-of-origin-dco)
-    - [How to sign (recommended flow)](#how-to-sign-recommended-flow)
+  - [Contributor License Agreement (CLA)](#contributor-license-agreement-cla)
     - [Quick fixes](#quick-fixes)
+  - [Releasing `codex`](#releasing-codex)
 - [Security \& Responsible AI](#securityresponsibleai)
-- [License](#license)
+- [Zero Data Retention (ZDR) Organization Limitation](#zero-data-retention-zdr-organization-limitation)
+- [MCP Tool Integration](#mcp-tool-integration)
 
 </details>
 
@@ -46,10 +47,10 @@
 
 Codex CLI supports two MCP client transport modes for connecting to Model Context Protocol servers:
 
-| Transport | Env Variable | Description |
-|-----------|--------------|-------------|
+| Transport | Env Variable                   | Description                                                                                                          |
+| --------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | HTTP/SSE  | `MCP_TRANSPORT=http` (default) | Connects to MCP servers via HTTP(S) using Server-Sent Events (SSE). Requires `MCP_SERVER_URL` or a valid MCP config. |
-| stdio     | `MCP_TRANSPORT=stdio`          | Connects to MCP servers via stdio (process pipes). Uses the first server entry in your MCP config for command/args. |
+| stdio     | `MCP_TRANSPORT=stdio`          | Connects to MCP servers via stdio (process pipes). Uses the first server entry in your MCP config for command/args.  |
 
 ### Usage
 
@@ -68,6 +69,62 @@ Codex CLI supports two MCP client transport modes for connecting to Model Contex
 
 ---
 
+## MCP Tool Integration
+
+Codex can act as an MCP client, enabling tool calls via the Model Context Protocol (MCP).
+
+### Manual Testing
+
+- You can manually test MCP tool calls by running integration tests (see `tests/agent-mcp-function-call.test.ts`).
+- For quick CLI testing, use or adapt the upcoming demo script (see `scripts/mcp-tool-demo.js`).
+
+### OpenAI 4.1 `tools` Field
+
+- The current implementation includes a hardcoded `tools` field in OpenAI requests (see `agent-loop.ts`).
+- **Limitation:** The `tools` field is not yet dynamically populated from the MCP tool registry. Only the built-in `shell` tool is exposed to the model.
+- To support dynamic tools, update the code to generate the `tools` field from the MCP registry.
+
+### Known Caveats
+
+- Legacy function call ID propagation tests are skipped due to architectural changes.
+- MCP registry and prompt summary are always initialized after `initMcpTools()`.
+- Full support for OpenAI 4.1 dynamic tools is a future roadmap item.
+
+### Running MCP Tool Demo on Node.js 22+
+
+> **Note:** Due to the current lack of stable ESM support in `ts-node` for Node 22+, you must transpile TypeScript scripts to JavaScript before running them. This is a temporary workaround until `ts-node@11` or later is stable.
+
+To run the MCP tool demo:
+
+```sh
+# Transpile the TypeScript demo script to JavaScript
+pnpm tsc scripts/mcp-tool-demo.ts --outDir dist
+
+# Run the transpiled script with Node.js
+node dist/scripts/mcp-tool-demo.js shell '{"command":["echo","hello world"]}'
+```
+
+#### Why?
+
+- Node 22+ requires advanced ESM loader support for TypeScript files.
+- `ts-node` stable does **not** yet support this; see [issue #3176](https://github.com/TypeStrong/ts-node/issues/3176).
+- This workaround ensures CLI scripts work on Node 22+ without downgrading Node or using beta dependencies.
+
+---
+
+## Experimental Technology Disclaimer
+
+Codex CLI is an experimental project under active development. It is not yet stable, may contain bugs, incomplete features, or undergo breaking changes. We’re building it in the open with the community and welcome:
+
+- Bug reports
+- Feature requests
+- Pull requests
+- Good vibes
+
+Help us improve by filing issues or submitting PRs (see the section below for how to contribute)!
+
+---
+
 ## Quickstart
 
 Install globally:
@@ -83,6 +140,14 @@ export OPENAI_API_KEY="your-api-key-here"
 ```
 
 > **Note:** This command sets the key only for your current terminal session. To make it permanent, add the `export` line to your shell's configuration file (e.g., `~/.zshrc`).
+>
+> **Tip:** You can also place your API key into a `.env` file at the root of your project:
+>
+> ```env
+> OPENAI_API_KEY=your-api-key-here
+> ```
+>
+> The CLI will automatically load variables from `.env` (via `dotenv/config`).
 
 Run interactively:
 
@@ -126,11 +191,11 @@ And it's **fully open-source** so you can see and contribute to how it develops!
 Codex lets you decide _how much autonomy_ the agent receives and auto-approval policy via the
 `--approval-mode` flag (or the interactive onboarding prompt):
 
-| Mode                      | What the agent may do without asking            | Still requires approval                                         |
-| ------------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
-| **Suggest** <br>(default) | • Read any file in the repo                     | • **All** file writes/patches <br>• **All** shell/Bash commands |
-| **Auto Edit**             | • Read **and** apply‑patch writes to files      | • **All** shell/Bash commands                                   |
-| **Full Auto**             | • Read/write files <br>• Execute shell commands | –                                                               |
+| Mode                      | What the agent may do without asking                                                               | Still requires approval                                                                         |
+| ------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| **Suggest** <br>(default) | • Read any file in the repo                                                                        | • **All** file writes/patches <br>• **Any** arbitrary shell commands (aside from reading files) |
+| **Auto Edit**             | • Read **and** apply‑patch writes to files                                                         | • **All** shell commands                                                                        |
+| **Full Auto**             | • Read/write files <br>• Execute shell commands (network disabled, writes limited to your workdir) | –                                                                                               |
 
 In **Full Auto** every command is run **network‑disabled** and confined to the
 current working directory (plus temporary files) for defense‑in‑depth. Codex
@@ -152,13 +217,12 @@ The hardening mechanism Codex uses depends on your OS:
   - Outbound network is _fully blocked_ by default – even if a child process
     tries to `curl` somewhere it will fail.
 
-- **Linux** – we recommend using Docker for sandboxing, where Codex launches itself inside a **minimal
+- **Linux** – there is no sandboxing by default.
+  We recommend using Docker for sandboxing, where Codex launches itself inside a **minimal
   container image** and mounts your repo _read/write_ at the same path. A
   custom `iptables`/`ipset` firewall script denies all egress except the
   OpenAI API. This gives you deterministic, reproducible runs without needing
-  root on the host. You can read more in [`run_in_container.sh`](./codex-cli/scripts/run_in_container.sh)
-
-Both approaches are _transparent_ to everyday usage – you still run `codex` from your repo root and approve/reject steps as usual.
+  root on the host. You can use the [`run_in_container.sh`](./codex-cli/scripts/run_in_container.sh) script to set up the sandbox.
 
 ---
 
@@ -177,14 +241,14 @@ Both approaches are _transparent_ to everyday usage – you still run `codex` fr
 
 ## CLI Reference
 
-| Command        | Purpose                             | Example                              |
-| -------------- | ----------------------------------- | ------------------------------------ |
-| `codex`        | Interactive REPL                    | `codex`                              |
-| `codex "…"`    | Initial prompt for interactive REPL | `codex "fix lint errors"`            |
-| `codex -q "…"` | Non‑interactive "quiet mode"        | `codex -q --json "explain utils.ts"` |
-| `codex completion <bash\|zsh\|fish>` | Print shell completion script    | `codex completion bash`               |
+| Command                              | Purpose                             | Example                              |
+| ------------------------------------ | ----------------------------------- | ------------------------------------ |
+| `codex`                              | Interactive REPL                    | `codex`                              |
+| `codex "…"`                          | Initial prompt for interactive REPL | `codex "fix lint errors"`            |
+| `codex -q "…"`                       | Non‑interactive "quiet mode"        | `codex -q --json "explain utils.ts"` |
+| `codex completion <bash\|zsh\|fish>` | Print shell completion script       | `codex completion bash`              |
 
-Key flags: `--model/-m`, `--approval-mode/-a`, and `--quiet/-q`.
+Key flags: `--model/-m`, `--approval-mode/-a`, `--quiet/-q`, and `--notify`.
 
 ---
 
@@ -214,6 +278,14 @@ Run Codex head‑less in pipelines. Example GitHub Action step:
 
 Set `CODEX_QUIET_MODE=1` to silence interactive UI noise.
 
+## Tracing / Verbose Logging
+
+Setting the environment variable `DEBUG=true` prints full API request and response details:
+
+```shell
+DEBUG=true codex
+```
+
 ---
 
 ## Recipes
@@ -241,6 +313,10 @@ Below are a few bite‑size examples you can copy‑paste. Replace the text in q
 npm install -g @openai/codex
 # or
 yarn global add @openai/codex
+# or
+bun install -g @openai/codex
+# or
+pnpm add -g @openai/codex
 ```
 
 </details>
@@ -253,9 +329,12 @@ yarn global add @openai/codex
 git clone https://github.com/openai/codex.git
 cd codex/codex-cli
 
+# Enable corepack
+corepack enable
+
 # Install dependencies and build
-npm install
-npm run build
+pnpm install
+pnpm build
 
 # Get the usage and the options
 node ./dist/cli.js --help
@@ -264,7 +343,7 @@ node ./dist/cli.js --help
 node ./dist/cli.js
 
 # Or link the command globally for convenience
-npm link
+pnpm link
 ```
 
 </details>
@@ -273,12 +352,27 @@ npm link
 
 ## Configuration
 
-Codex looks for config files in **`~/.codex/`**.
+Codex looks for config files in **`~/.codex/`** (either YAML or JSON format).
 
 ```yaml
 # ~/.codex/config.yaml
 model: o4-mini # Default model
+approvalMode: suggest # or auto-edit, full-auto
 fullAutoErrorMode: ask-user # or ignore-and-continue
+notify: true # Enable desktop notifications for responses
+safeCommands:
+  - npm test # Automatically approve npm test
+  - yarn lint # Automatically approve yarn lint
+```
+
+```json
+// ~/.codex/config.json
+{
+  "model": "o4-mini",
+  "approvalMode": "suggest",
+  "fullAutoErrorMode": "ask-user",
+  "notify": true
+}
 ```
 
 You can also define custom instructions:
@@ -301,12 +395,24 @@ In 2021, OpenAI released Codex, an AI system designed to generate code from natu
 </details>
 
 <details>
-<summary>How do I stop Codex from touching my repo?</summary>
+<summary>Which models are supported?</summary>
 
-Codex always runs in a **sandbox first**. If a proposed command or file change looks suspicious you can simply answer **n** when prompted and nothing happens to your working tree.
+Any model available with [Responses API](https://platform.openai.com/docs/api-reference/responses). The default is `o4-mini`, but pass `--model gpt-4.1` or set `model: gpt-4.1` in your config file to override.
+
+</details>
+<details>
+<summary>Why does <code>o3</code> or <code>o4-mini</code> not work for me?</summary>
+
+It's possible that your [API account needs to be verified](https://help.openai.com/en/articles/10910291-api-organization-verification) in order to start streaming responses and seeing chain of thought summaries from the API. If you're still running into issues, please let us know!
 
 </details>
 
+<details>
+<summary>How do I stop Codex from editing my files?</summary>
+
+Codex runs model-generated commands in a sandbox. If a proposed command or file change doesn't look right, you can simply type **n** to deny the command or give the model feedback.
+
+</details>
 <details>
 <summary>Does it work on Windows?</summary>
 
@@ -314,12 +420,39 @@ Not directly. It requires [Windows Subsystem for Linux (WSL2)](https://learn.mic
 
 </details>
 
-<details>
-<summary>Which models are supported?</summary>
+---
 
-Any model available with [Responses API](https://platform.openai.com/docs/api-reference/responses). The default is `o4-mini`, but pass `--model gpt-4o` or set `model: gpt-4o` in your config file to override.
+## Zero Data Retention (ZDR) Organization Limitation
 
-</details>
+> **Note:** Codex CLI does **not** currently support OpenAI organizations with [Zero Data Retention (ZDR)](https://platform.openai.com/docs/guides/your-data#zero-data-retention) enabled.
+
+If your OpenAI organization has Zero Data Retention enabled, you may encounter errors such as:
+
+```
+OpenAI rejected the request. Error details: Status: 400, Code: unsupported_parameter, Type: invalid_request_error, Message: 400 Previous response cannot be used for this organization due to Zero Data Retention.
+```
+
+**Why?**
+
+- Codex CLI relies on the Responses API with `store:true` to enable internal reasoning steps.
+- As noted in the [docs](https://platform.openai.com/docs/guides/your-data#responses-api), the Responses API requires a 30-day retention period by default, or when the store parameter is set to true.
+- ZDR organizations cannot use `store:true`, so requests will fail.
+
+**What can I do?**
+
+- If you are part of a ZDR organization, Codex CLI will not work until support is added.
+- We are tracking this limitation and will update the documentation if support becomes available.
+
+---
+
+## Funding Opportunity
+
+We’re excited to launch a **$1 million initiative** supporting open source projects that use Codex CLI and other OpenAI models.
+
+- Grants are awarded in **$25,000** API credit increments.
+- Applications are reviewed **on a rolling basis**.
+
+**Interested? [Apply here](https://openai.com/form/codex-open-source-fund/).**
 
 ---
 
@@ -333,13 +466,22 @@ More broadly we welcome contributions – whether you are opening your very firs
 
 - Create a _topic branch_ from `main` – e.g. `feat/interactive-prompt`.
 - Keep your changes focused. Multiple unrelated fixes should be opened as separate PRs.
-- Use `npm run test:watch` during development for super‑fast feedback.
+- Use `pnpm test:watch` during development for super‑fast feedback.
 - We use **Vitest** for unit tests, **ESLint** + **Prettier** for style, and **TypeScript** for type‑checking.
 - Before pushing, run the full test/type/lint suite:
 
-  ```bash
-  npm test && npm run lint && npm run typecheck
-  ```
+### Git Hooks with Husky
+
+This project uses [Husky](https://typicode.github.io/husky/) to enforce code quality checks:
+
+- **Pre-commit hook**: Automatically runs lint-staged to format and lint files before committing
+- **Pre-push hook**: Runs tests and type checking before pushing to the remote
+
+These hooks help maintain code quality and prevent pushing code with failing tests. For more details, see [HUSKY.md](./codex-cli/HUSKY.md).
+
+```bash
+npm test && npm run lint && npm run typecheck
+```
 
 - If you have **not** yet signed the Contributor License Agreement (CLA), add a PR comment containing the exact text
 
@@ -351,14 +493,39 @@ More broadly we welcome contributions – whether you are opening your very firs
 
 ```bash
 # Watch mode (tests rerun on change)
-npm run test:watch
+pnpm test:watch
 
 # Type‑check without emitting files
-npm run typecheck
+pnpm typecheck
 
 # Automatically fix lint + prettier issues
-npm run lint:fix
-npm run format:fix
+pnpm lint:fix
+pnpm format:fix
+```
+
+#### Nix Flake Development
+
+Prerequisite: Nix >= 2.4 with flakes enabled (`experimental-features = nix-command flakes` in `~/.config/nix/nix.conf`).
+
+Enter a Nix development shell:
+
+```bash
+nix develop
+```
+
+This shell includes Node.js, installs dependencies, builds the CLI, and provides a `codex` command alias.
+
+Build and run the CLI directly:
+
+```bash
+nix build
+./result/bin/codex --help
+```
+
+Run the CLI via the flake app:
+
+```bash
+nix run .#codex
 ```
 
 ### Writing high‑impact code changes
@@ -404,7 +571,7 @@ All contributors **must** accept the CLA. The process is lightweight:
    I have read the CLA Document and I hereby sign the CLA
    ```
 
-3. The CLA‑Assistant bot records your signature in the repo and marks the status check as passed.
+   The CLA‑Assistant bot records your signature in the repo and marks the status check as passed.
 
 No special Git commands, email attachments, or commit footers required.
 
@@ -423,13 +590,13 @@ To publish a new version of the CLI, run the release scripts defined in `codex-c
 
 1. Open the `codex-cli` directory
 2. Make sure you're on a branch like `git checkout -b bump-version`
-3. Bump the version and `CLI_VERSION` to current datetime: `npm run release:version`
+3. Bump the version and `CLI_VERSION` to current datetime: `pnpm release:version`
 4. Commit the version bump (with DCO sign-off):
    ```bash
    git add codex-cli/src/utils/session.ts codex-cli/package.json
    git commit -s -m "chore(release): codex-cli v$(node -p \"require('./codex-cli/package.json').version\")"
    ```
-5. Copy README, build, and publish to npm: `npm run release`
+5. Copy README, build, and publish to npm: `pnpm release`
 6. Push to branch: `git push origin HEAD`
 
 ---

@@ -1,5 +1,17 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
+vi.mock("../src/utils/agent/aggregate-mcp-tools", () => ({
+  aggregateMcpToolsGeneric: vi.fn(async () => ({
+    mockTool: {
+      tool: {
+        name: "mockTool",
+        description: "Mock tool for testing",
+        parameters: { type: "object", properties: { foo: { type: "string" } } },
+      },
+    },
+  })),
+}));
+
 describe("AgentLoop MCP function call integration", () => {
   beforeEach(() => {
     vi.resetModules(); // Not strictly needed now, but safe
@@ -23,6 +35,7 @@ describe("AgentLoop MCP function call integration", () => {
       onLastResponseId: () => {},
       invokeMcpTool: mockInvokeMcpTool,
     });
+    await agent.initMcpTools();
 
     const mockFunctionCall = {
       type: "function_call",
@@ -54,6 +67,7 @@ describe("AgentLoop MCP function call integration", () => {
       onLastResponseId: () => {},
       invokeMcpTool: mockInvokeMcpTool,
     });
+    await agent.initMcpTools();
 
     const mockFunctionCall = {
       type: "function_call",

@@ -136,3 +136,4 @@ export async function aggregateMcpTools(): Promise<Array<{ server: string; tool:
 }
 
 export { mcpConfig };
+export { aggregateMcpToolsGeneric } from "./aggregate-mcp-tools";

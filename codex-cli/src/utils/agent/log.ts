@@ -88,7 +88,7 @@ export function initLogger(): Logger {
   const isMac = process.platform === "darwin";
   const isWin = process.platform === "win32";
 
-  // On Mac and Windows, os.tmpdir() returns a user-specifc folder, so prefer
+  // On Mac and Windows, os.tmpdir() returns a user-specific folder, so prefer
   // it there. On Linux, use ~/.local/oai-codex so logs are not world-readable.
   const logDir =
     isMac || isWin
@@ -124,6 +124,14 @@ export function log(message: string): void {
   (logger ?? initLogger()).log(message);
 }
 
+/**
+ * USE SPARINGLY! This function should only be used to guard a call to log() if
+ * the log message is large and you want to avoid constructing it if logging is
+ * disabled.
+ *
+ * `log()` is already a no-op if DEBUG is not set, so an extra
+ * `isLoggingEnabled()` check is unnecessary.
+ */
 export function isLoggingEnabled(): boolean {
   return (logger ?? initLogger()).isLoggingEnabled();
 }
