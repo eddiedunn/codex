@@ -1,0 +1,9 @@
+{
+  "version": "3.1.1",
+  "results": [
+    [
+      ":codex-cli/tests/agent-function-call-id.test.ts",
+      { "duration": 36.85582699999986, "failed": true }
+    ]
+  ]
+}
