@@ -8,8 +8,9 @@
 
 import type { FullAutoErrorMode } from "./auto-approval-mode.js";
 
-import { log } from "./agent/log.js";
 import { AutoApprovalMode } from "./auto-approval-mode.js";
+import { log } from "./logger/log.js";
+import { providers } from "./providers.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { load as loadYaml, dump as dumpYaml } from "js-yaml";
 import { homedir } from "os";
@@ -40,24 +41,67 @@ export function setApiKey(apiKey: string): void {
   OPENAI_API_KEY = apiKey;
 }
 
-// Formatting (quiet mode-only).
-export const PRETTY_PRINT = Boolean(process.env["PRETTY_PRINT"] || "");
+export function getBaseUrl(provider: string = "openai"): string | undefined {
+  // Check for a PROVIDER-specific override: e.g. OPENAI_BASE_URL or OLLAMA_BASE_URL.
+  const envKey = `${provider.toUpperCase()}_BASE_URL`;
+  if (process.env[envKey]) {
+    return process.env[envKey];
+  }
+
+  // Get providers config from config file.
+  const config = loadConfig();
+  const providersConfig = config.providers ?? providers;
+  const providerInfo = providersConfig[provider.toLowerCase()];
+  if (providerInfo) {
+    return providerInfo.baseURL;
+  }
+
+  // If the provider not found in the providers list and `OPENAI_BASE_URL` is set, use it.
+  if (OPENAI_BASE_URL !== "") {
+    return OPENAI_BASE_URL;
+  }
+
+  // We tried.
+  return undefined;
+}
+
+export function getApiKey(provider: string = "openai"): string | undefined {
+  const config = loadConfig();
+  const providersConfig = config.providers ?? providers;
+  const providerInfo = providersConfig[provider.toLowerCase()];
+  if (providerInfo) {
+    if (providerInfo.name === "Ollama") {
+      return process.env[providerInfo.envKey] ?? "dummy";
+    }
+    return process.env[providerInfo.envKey];
+  }
+
+  // If the provider not found in the providers list and `OPENAI_API_KEY` is set, use it
+  if (OPENAI_API_KEY !== "") {
+    return OPENAI_API_KEY;
+  }
+
+  // We tried.
+  return undefined;
+}
 
 // Represents config as persisted in config.json.
 export type StoredConfig = {
   model?: string;
+  provider?: string;
   approvalMode?: AutoApprovalMode;
   fullAutoErrorMode?: FullAutoErrorMode;
   memory?: MemoryConfig;
   /** Whether to enable desktop notifications for responses */
   notify?: boolean;
+  /** Disable server-side response storage (send full transcript each request) */
+  disableResponseStorage?: boolean;
+  providers?: Record<string, { name: string; baseURL: string; envKey: string }>;
   history?: {
     maxSize?: number;
     saveHistory?: boolean;
     sensitivePatterns?: Array<string>;
   };
-  /** User-defined safe commands */
-  safeCommands?: Array<string>;
 };
 
 // Minimal config written on first run.  An *empty* model string ensures that
@@ -76,6 +120,7 @@ export type MemoryConfig = {
 export type AppConfig = {
   apiKey?: string;
   model: string;
+  provider?: string;
   instructions: string;
   approvalMode?: AutoApprovalMode;
   fullAutoErrorMode?: FullAutoErrorMode;
@@ -83,16 +128,21 @@ export type AppConfig = {
   /** Whether to enable desktop notifications for responses */
   notify: boolean;
 
+  /** Disable server-side response storage (send full transcript each request) */
+  disableResponseStorage?: boolean;
+
   /** Enable the "flex-mode" processing mode for supported models (o3, o4-mini) */
   flexMode?: boolean;
+  providers?: Record<string, { name: string; baseURL: string; envKey: string }>;
   history?: {
     maxSize: number;
     saveHistory: boolean;
     sensitivePatterns: Array<string>;
   };
-  /** User-defined safe commands */
-  safeCommands?: Array<string>;
 };
+
+// Formatting (quiet mode-only).
+export const PRETTY_PRINT = Boolean(process.env["PRETTY_PRINT"] || "");
 
 // ---------------------------------------------------------------------------
 // Project doc support (codex.md)
@@ -270,10 +320,11 @@ export const loadConfig = (
       (options.isFullContext
         ? DEFAULT_FULL_CONTEXT_MODEL
         : DEFAULT_AGENTIC_MODEL),
+    provider: storedConfig.provider,
     instructions: combinedInstructions,
     notify: storedConfig.notify === true,
     approvalMode: storedConfig.approvalMode,
-    safeCommands: storedConfig.safeCommands ?? [],
+    disableResponseStorage: storedConfig.disableResponseStorage ?? false,
   };
 
   // -----------------------------------------------------------------------
@@ -351,12 +402,8 @@ export const loadConfig = (
     };
   }
 
-  // Load user-defined safe commands
-  if (Array.isArray(storedConfig.safeCommands)) {
-    config.safeCommands = storedConfig.safeCommands.map(String);
-  } else {
-    config.safeCommands = [];
-  }
+  // Merge default providers with user configured providers in the config.
+  config.providers = { ...providers, ...storedConfig.providers };
 
   return config;
 };
@@ -389,6 +436,8 @@ export const saveConfig = (
   // Create the config object to save
   const configToSave: StoredConfig = {
     model: config.model,
+    provider: config.provider,
+    providers: config.providers,
     approvalMode: config.approvalMode,
   };
 
@@ -399,10 +448,6 @@ export const saveConfig = (
       saveHistory: config.history.saveHistory,
       sensitivePatterns: config.history.sensitivePatterns,
     };
-  }
-  // Save: User-defined safe commands
-  if (config.safeCommands && config.safeCommands.length > 0) {
-    configToSave.safeCommands = config.safeCommands;
   }
 
   if (ext === ".yaml" || ext === ".yml") {

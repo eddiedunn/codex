@@ -1,28 +1,30 @@
 import type { ReviewDecision } from "./review.js";
-import type { ApplyPatchCommand } from "../../approvals.js";
-import type { AppConfig } from "../config";
+import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
+import type { AppConfig } from "../config.js";
+import type { ResponseEvent } from "../responses.js";
 import type {
   ResponseFunctionToolCall,
   ResponseInputItem,
   ResponseItem,
+  ResponseCreateParams,
+  FunctionTool,
 } from "openai/resources/responses/responses.mjs";
 import type { Reasoning } from "openai/resources.mjs";
-import type { ExecInput } from "./sandbox/interface.js";
 
-import { log } from "./log.js";
-import { OPENAI_BASE_URL, OPENAI_TIMEOUT_MS } from "../config";
-import { ORIGIN, CLI_VERSION, getSessionId, setCurrentModel, setSessionId } from "../session.js";
+import { OPENAI_TIMEOUT_MS, getApiKey, getBaseUrl } from "../config.js";
+import { log } from "../logger/log.js";
+import { parseToolCallArguments } from "../parsers.js";
+import { responsesCreateViaChatCompletions } from "../responses.js";
+import {
+  ORIGIN,
+  CLI_VERSION,
+  getSessionId,
+  setCurrentModel,
+  setSessionId,
+} from "../session.js";
 import { handleExecCommand } from "./handle-exec-command.js";
 import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
-import { loadMcpConfig } from "./load-mcp-config";
-import os from "os";
-import path from "path";
-import {
-  buildMcpToolRegistry as realBuildMcpToolRegistry,
-  generateMcpPromptSummary as realGenerateMcpPromptSummary,
-  McpToolRegistry,
-} from "./mcp-tool-exposure";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -37,40 +39,75 @@ export type CommandConfirmation = {
   explanation?: string;
 };
 
-export type ApprovalPolicy = "suggest" | "auto-edit" | "full-auto";
+const alreadyProcessedResponses = new Set();
 
 type AgentLoopParams = {
   model: string;
+  provider?: string;
   config?: AppConfig;
   instructions?: string;
   approvalPolicy: ApprovalPolicy;
+  /**
+   * Whether the model responses should be stored on the server side (allows
+   * using `previous_response_id` to provide conversational context). Defaults
+   * to `true` to preserve the current behaviour. When set to `false` the agent
+   * will instead send the *full* conversation context as the `input` payload
+   * on every request and omit the `previous_response_id` parameter.
+   */
+  disableResponseStorage?: boolean;
   onItem: (item: ResponseItem) => void;
   onLoading: (loading: boolean) => void;
-  // Retain extra writable roots for sandboxing if used elsewhere
-  additionalWritableRoots?: ReadonlyArray<string>;
+
+  /** Extra writable roots to use with sandbox execution. */
+  additionalWritableRoots: ReadonlyArray<string>;
+
   /** Called when the command is not auto-approved to request explicit user review. */
   getCommandConfirmation: (
     command: Array<string>,
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
   onLastResponseId: (lastResponseId: string) => void;
-  invokeMcpTool?: (toolName: string, params: Record<string, any>) => Promise<any>;
-  buildMcpToolRegistry?: () => Promise<McpToolRegistry>;
-  generateMcpPromptSummary?: (registry: McpToolRegistry | null) => string;
+};
+
+const shellTool: FunctionTool = {
+  type: "function",
+  name: "shell",
+  description: "Runs a shell command, and returns its output.",
+  strict: false,
+  parameters: {
+    type: "object",
+    properties: {
+      command: { type: "array", items: { type: "string" } },
+      workdir: {
+        type: "string",
+        description: "The working directory for the command.",
+      },
+      timeout: {
+        type: "number",
+        description:
+          "The maximum time to wait for the command to complete in milliseconds.",
+      },
+    },
+    required: ["command"],
+    additionalProperties: false,
+  },
 };
 
 export class AgentLoop {
   private model: string;
+  private provider: string;
   private instructions?: string;
   private approvalPolicy: ApprovalPolicy;
   private config: AppConfig;
   private additionalWritableRoots: ReadonlyArray<string>;
+  /** Whether we ask the API to persist conversation state on the server */
+  private readonly disableResponseStorage: boolean;
 
   // Using `InstanceType<typeof OpenAI>` sidesteps typing issues with the OpenAI package under
   // the TS 5+ `moduleResolution=bundler` setup. OpenAI client instance. We keep the concrete
   // type to avoid sprinkling `any` across the implementation while still allowing paths where
   // the OpenAI SDK types may not perfectly match. The `typeof OpenAI` pattern captures the
-  // instance shape without resorting to `false`.
+  // instance shape without resorting to `any`.
   private oai: OpenAI;
 
   private onItem: (item: ResponseItem) => void;
@@ -95,6 +132,13 @@ export class AgentLoop {
   private execAbortController: AbortController | null = null;
   /** Set to true when `cancel()` is called so `run()` can exit early. */
   private canceled = false;
+
+  /**
+   * Local conversation transcript used when `disableResponseStorage === true`. Holds
+   * all non‑system items exchanged so far so we can provide full context on
+   * every request.
+   */
+  private transcript: Array<ResponseInputItem> = [];
   /** Function calls that were emitted by the model but never answered because
    *  the user cancelled the run.  We keep the `call_id`s around so the *next*
    *  request can send a dummy `function_call_output` that satisfies the
@@ -106,12 +150,6 @@ export class AgentLoop {
   private terminated = false;
   /** Master abort controller – fires when terminate() is invoked. */
   private readonly hardAbort = new AbortController();
-
-  private readonly buildMcpToolRegistry: () => Promise<McpToolRegistry>;
-  private readonly generateMcpPromptSummary: (registry: McpToolRegistry | null) => string;
-  private mcpToolRegistry: McpToolRegistry | null = null;
-  private mcpPromptSummary: string | null = null;
-  private _injectedInvokeMcpTool?: (toolName: string, params: Record<string, any>) => Promise<any>;
 
   /**
    * Abort the ongoing request/stream, if any. This allows callers (typically
@@ -207,8 +245,10 @@ export class AgentLoop {
   // private cumulativeThinkingMs = 0;
   constructor({
     model,
+    provider = "openai",
     instructions,
     approvalPolicy,
+    disableResponseStorage,
     // `config` used to be required.  Some unit‑tests (and potentially other
     // callers) instantiate `AgentLoop` without passing it, so we make it
     // optional and fall back to sensible defaults.  This keeps the public
@@ -220,14 +260,10 @@ export class AgentLoop {
     onLoading,
     getCommandConfirmation,
     onLastResponseId,
-    // Optional for sandboxing (main branch), default to [] for backward compatibility
-    additionalWritableRoots = [],
-    // Optional MCP tool registry/prompt summary injection (your branch)
-    invokeMcpTool,
-    buildMcpToolRegistry = realBuildMcpToolRegistry,
-    generateMcpPromptSummary = realGenerateMcpPromptSummary,
-  }: AgentLoopParams) {
+    additionalWritableRoots,
+  }: AgentLoopParams & { config?: AppConfig }) {
     this.model = model;
+    this.provider = provider;
     this.instructions = instructions;
     this.approvalPolicy = approvalPolicy;
 
@@ -247,13 +283,14 @@ export class AgentLoop {
     this.onLoading = onLoading;
     this.getCommandConfirmation = getCommandConfirmation;
     this.onLastResponseId = onLastResponseId;
-    this._injectedInvokeMcpTool = invokeMcpTool;
-    this.buildMcpToolRegistry = buildMcpToolRegistry;
-    this.generateMcpPromptSummary = generateMcpPromptSummary;
+
+    this.disableResponseStorage = disableResponseStorage ?? false;
     this.sessionId = getSessionId() || randomUUID().replaceAll("-", "");
     // Configure OpenAI client with optional timeout (ms) from environment
     const timeoutMs = OPENAI_TIMEOUT_MS;
-    const apiKey = this.config.apiKey ?? process.env["OPENAI_API_KEY"] ?? "";
+    const apiKey = getApiKey(this.provider);
+    const baseURL = getBaseUrl(this.provider);
+
     this.oai = new OpenAI({
       // The OpenAI JS SDK only requires `apiKey` when making requests against
       // the official API.  When running unit‑tests we stub out all network
@@ -262,7 +299,7 @@ export class AgentLoop {
       // errors inside the SDK (it validates that `apiKey` is a non‑empty
       // string when the field is present).
       ...(apiKey ? { apiKey } : {}),
-      baseURL: OPENAI_BASE_URL,
+      baseURL,
       defaultHeaders: {
         originator: ORIGIN,
         version: CLI_VERSION,
@@ -283,104 +320,108 @@ export class AgentLoop {
     );
   }
 
-  /**
-   * Initialize MCP tools according to the configured exposure mode.
-   */
-  public async initMcpTools(): Promise<void> {
-    // Canonical: always build registry and prompt summary
-    this.mcpToolRegistry = await this.buildMcpToolRegistry();
-    this.mcpPromptSummary = await this.generateMcpPromptSummary(this.mcpToolRegistry);
-  }
-
-  /**
-   * Look up MCP tool in registry and invoke.
-   */
-  public async invokeMcpTool(toolName: string, params: Record<string, any>): Promise<any> {
-    // Use DI if provided, else use canonical registry logic
-    if (this._injectedInvokeMcpTool) {
-      return this._injectedInvokeMcpTool(toolName, params);
-    }
-    if (!this.mcpToolRegistry) {
-      throw new Error("MCP tool registry not initialized");
-    }
-    const entry = this.mcpToolRegistry[toolName];
-    if (!entry) throw new Error(`Tool '${toolName}' not found in MCP registry`);
-    const mod = await import("./mcp-client.js");
-    return mod.invokeMcpTool(toolName, params);
-  }
-
-  /**
-   * Handles OpenAI function/tool calls, including MCP and built-in tools.
-   */
   private async handleFunctionCall(
     item: ResponseFunctionToolCall,
   ): Promise<Array<ResponseInputItem>> {
-    // Diagnostic logging for test debugging
-    log(`[handleFunctionCall] item: ${JSON.stringify(item)}`);
+    // If the agent has been canceled in the meantime we should not perform any
+    // additional work. Returning an empty array ensures that we neither execute
+    // the requested tool call nor enqueue any follow‑up input items. This keeps
+    // the cancellation semantics intuitive for users – once they interrupt a
+    // task no further actions related to that task should be taken.
     if (this.canceled) {
-      log(`[handleFunctionCall] canceled, returning []`);
       return [];
     }
-    const name: string = typeof item.name === "string" ? item.name : "";
-    const callId: string = typeof item.id === "string" ? item.id : "unknown";
-    const rawArguments = item.arguments;
-    log(`[handleFunctionCall] name: ${name}, callId: ${callId}, rawArguments: ${JSON.stringify(rawArguments)}`);
-    let parsedArgs: Record<string, any> = {};
-    try {
-      parsedArgs = typeof rawArguments === "string" ? JSON.parse(rawArguments) : (rawArguments ?? {});
-      log(`[handleFunctionCall] parsedArgs: ${JSON.stringify(parsedArgs)}`);
-    } catch (err) {
-      log(`[handleFunctionCall] argument parsing error: ${(err as Error).message}`);
-      return [{
+    // ---------------------------------------------------------------------
+    // Normalise the function‑call item into a consistent shape regardless of
+    // whether it originated from the `/responses` or the `/chat/completions`
+    // endpoint – their JSON differs slightly.
+    // ---------------------------------------------------------------------
+
+    const isChatStyle =
+      // The chat endpoint nests function details under a `function` key.
+      // We conservatively treat the presence of this field as a signal that
+      // we are dealing with the chat format.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (item as any).function != null;
+
+    const name: string | undefined = isChatStyle
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (item as any).function?.name
+      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (item as any).name;
+
+    const rawArguments: string | undefined = isChatStyle
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (item as any).function?.arguments
+      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (item as any).arguments;
+
+    // The OpenAI "function_call" item may have either `call_id` (responses
+    // endpoint) or `id` (chat endpoint).  Prefer `call_id` if present but fall
+    // back to `id` to remain compatible.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const callId: string = (item as any).call_id ?? (item as any).id;
+
+    const args = parseToolCallArguments(rawArguments ?? "{}");
+    log(
+      `handleFunctionCall(): name=${
+        name ?? "undefined"
+      } callId=${callId} args=${rawArguments}`,
+    );
+
+    if (args == null) {
+      const outputItem: ResponseInputItem.FunctionCallOutput = {
         type: "function_call_output",
-        call_id: callId,
-        output: JSON.stringify({ error: `invalid arguments: ${err}` }),
-      }];
-    }
-    // MCP tool call path
-    if (this._injectedInvokeMcpTool) {
-      log(`[handleFunctionCall] Using injected MCP tool handler`);
-    }
-    // If the tool name starts with "mcp.", strip the prefix for the injected handler
-    if (name && this._injectedInvokeMcpTool) {
-      let toolNameForHandler = name;
-      if (toolNameForHandler.startsWith("mcp.")) {
-        toolNameForHandler = toolNameForHandler.slice(4);
-      }
-      try {
-        const result = await this._injectedInvokeMcpTool(toolNameForHandler, parsedArgs);
-        log(`[handleFunctionCall] MCP tool result: ${JSON.stringify(result)}`);
-        return [{
-          type: "function_call_output",
-          call_id: callId,
-          output: JSON.stringify(result),
-        }];
-      } catch (err) {
-        log(`[handleFunctionCall] MCP tool error: ${(err as Error).message}`);
-        return [{
-          type: "function_call_output",
-          call_id: callId,
-          output: JSON.stringify({ error: String(err) }),
-        }];
-      }
-    }
-    // Built-in tool (container.exec/shell)
-    if (name === "container.exec" || name === "shell") {
-      log(`[handleFunctionCall] Built-in tool path for ${name}`);
-      // ...existing logic for built-in tool calls...
-      // If you have additionalItemsFromExec, check for undefined
-      // (This is a placeholder for your actual exec logic)
-      const outputItem: any = { type: "function_call_output", call_id: callId };
-      outputItem.output = JSON.stringify({ output: "", metadata: {} });
+        call_id: item.call_id,
+        output: `invalid arguments: ${rawArguments}`,
+      };
       return [outputItem];
     }
-    // Unknown tool
-    log(`[handleFunctionCall] Unknown tool: ${name}`);
-    return [{
+
+    const outputItem: ResponseInputItem.FunctionCallOutput = {
       type: "function_call_output",
+      // `call_id` is mandatory – ensure we never send `undefined` which would
+      // trigger the "No tool output found…" 400 from the API.
       call_id: callId,
-      output: JSON.stringify({ error: `unknown tool: ${name}` }),
-    }];
+      output: "no function found",
+    };
+
+    // We intentionally *do not* remove this `callId` from the `pendingAborts`
+    // set right away.  The output produced below is only queued up for the
+    // *next* request to the OpenAI API – it has not been delivered yet.  If
+    // the user presses ESC‑ESC (i.e. invokes `cancel()`) in the small window
+    // between queuing the result and the actual network call, we need to be
+    // able to surface a synthetic `function_call_output` marked as
+    // "aborted".  Keeping the ID in the set until the run concludes
+    // successfully lets the next `run()` differentiate between an aborted
+    // tool call (needs the synthetic output) and a completed one (cleared
+    // below in the `flush()` helper).
+
+    // used to tell model to stop if needed
+    const additionalItems: Array<ResponseInputItem> = [];
+
+    // TODO: allow arbitrary function calls (beyond shell/container.exec)
+    if (name === "container.exec" || name === "shell") {
+      const {
+        outputText,
+        metadata,
+        additionalItems: additionalItemsFromExec,
+      } = await handleExecCommand(
+        args,
+        this.config,
+        this.approvalPolicy,
+        this.additionalWritableRoots,
+        this.getCommandConfirmation,
+        this.execAbortController?.signal,
+      );
+      outputItem.output = JSON.stringify({ output: outputText, metadata });
+
+      if (additionalItemsFromExec) {
+        additionalItems.push(...additionalItemsFromExec);
+      }
+    }
+
+    return [outputItem, ...additionalItems];
   }
 
   public async run(
@@ -422,7 +463,17 @@ export class AgentLoop {
       // accumulate listeners which in turn triggered Node's
       // `MaxListenersExceededWarning` after ten invocations.
 
-      let lastResponseId: string = previousResponseId;
+      // Track the response ID from the last *stored* response so we can use
+      // `previous_response_id` when `disableResponseStorage` is enabled.  When storage
+      // is disabled we deliberately ignore the caller‑supplied value because
+      // the backend will not retain any state that could be referenced.
+      // If the backend stores conversation state (`disableResponseStorage === false`) we
+      // forward the caller‑supplied `previousResponseId` so that the model sees the
+      // full context.  When storage is disabled we *must not* send any ID because the
+      // server no longer retains the referenced response.
+      let lastResponseId: string = this.disableResponseStorage
+        ? ""
+        : previousResponseId;
 
       // If there are unresolved function calls from a previously cancelled run
       // we have to emit dummy tool outputs so that the API no longer expects
@@ -444,7 +495,55 @@ export class AgentLoop {
         this.pendingAborts.clear();
       }
 
-      let turnInput = [...abortOutputs, ...input];
+      // Build the input list for this turn. When responses are stored on the
+      // server we can simply send the *delta* (the new user input as well as
+      // any pending abort outputs) and rely on `previous_response_id` for
+      // context.  When storage is disabled the server has no memory of the
+      // conversation, so we must include the *entire* transcript (minus system
+      // messages) on every call.
+
+      let turnInput: Array<ResponseInputItem> = [];
+      // Keeps track of how many items in `turnInput` stem from the existing
+      // transcript so we can avoid re‑emitting them to the UI. Only used when
+      // `disableResponseStorage === true`.
+      let transcriptPrefixLen = 0;
+
+      const stripInternalFields = (
+        item: ResponseInputItem,
+      ): ResponseInputItem => {
+        // Clone shallowly and remove fields that are not part of the public
+        // schema expected by the OpenAI Responses API.
+        // We shallow‑clone the item so that subsequent mutations (deleting
+        // internal fields) do not affect the original object which may still
+        // be referenced elsewhere (e.g. UI components).
+        const clean = { ...item } as Record<string, unknown>;
+        delete clean["duration_ms"];
+        // Remove OpenAI-assigned identifiers and transient status so the
+        // backend does not reject items that were never persisted because we
+        // use `store: false`.
+        delete clean["id"];
+        delete clean["status"];
+        return clean as unknown as ResponseInputItem;
+      };
+
+      if (this.disableResponseStorage) {
+        // Remember where the existing transcript ends – everything after this
+        // index in the upcoming `turnInput` list will be *new* for this turn
+        // and therefore needs to be surfaced to the UI.
+        transcriptPrefixLen = this.transcript.length;
+
+        // Ensure the transcript is up‑to‑date with the latest user input so
+        // that subsequent iterations see a complete history.
+        // `turnInput` is still empty at this point (it will be filled later).
+        // We need to look at the *input* items the user just supplied.
+        this.transcript.push(...filterToApiMessages(input));
+
+        turnInput = [...this.transcript, ...abortOutputs].map(
+          stripInternalFields,
+        );
+      } else {
+        turnInput = [...abortOutputs, ...input].map(stripInternalFields);
+      }
 
       this.onLoading(true);
 
@@ -475,6 +574,51 @@ export class AgentLoop {
             this.onItem(item);
             // Mark as delivered so flush won't re-emit it
             staged[idx] = undefined;
+
+            // When we operate without server‑side storage we keep our own
+            // transcript so we can provide full context on subsequent calls.
+            if (this.disableResponseStorage) {
+              // Exclude system messages from transcript as they do not form
+              // part of the assistant/user dialogue that the model needs.
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const role = (item as any).role;
+              if (role !== "system") {
+                // Clone the item to avoid mutating the object that is also
+                // rendered in the UI. We need to strip auxiliary metadata
+                // such as `duration_ms` which is not part of the Responses
+                // API schema and therefore causes a 400 error when included
+                // in subsequent requests whose context is sent verbatim.
+
+                // Skip items that we have already inserted earlier or that the
+                // model does not need to see again in the next turn.
+                //   • function_call   – superseded by the forthcoming
+                //     function_call_output.
+                //   • reasoning       – internal only, never sent back.
+                //   • user messages   – we added these to the transcript when
+                //     building the first turnInput; stageItem would add a
+                //     duplicate.
+                if (
+                  (item as ResponseInputItem).type === "function_call" ||
+                  (item as ResponseInputItem).type === "reasoning" ||
+                  ((item as ResponseInputItem).type === "message" &&
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    (item as any).role === "user")
+                ) {
+                  return;
+                }
+
+                const clone: ResponseInputItem = {
+                  ...(item as unknown as ResponseInputItem),
+                } as ResponseInputItem;
+                // The `duration_ms` field is only added to reasoning items to
+                // show elapsed time in the UI. It must not be forwarded back
+                // to the server.
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                delete (clone as any).duration_ms;
+
+                this.transcript.push(clone);
+              }
+            }
           }
         }, 10);
       };
@@ -485,7 +629,22 @@ export class AgentLoop {
           return;
         }
         // send request to openAI
-        for (const item of turnInput) {
+        // Only surface the *new* input items to the UI – replaying the entire
+        // transcript would duplicate messages that have already been shown in
+        // earlier turns.
+        // `turnInput` holds the *new* items that will be sent to the API in
+        // this iteration.  Surface exactly these to the UI so that we do not
+        // re‑emit messages from previous turns (which would duplicate user
+        // prompts) and so that freshly generated `function_call_output`s are
+        // shown immediately.
+        // Figure out what subset of `turnInput` constitutes *new* information
+        // for the UI so that we don’t spam the interface with repeats of the
+        // entire transcript on every iteration when response storage is
+        // disabled.
+        const deltaInput = this.disableResponseStorage
+          ? turnInput.slice(transcriptPrefixLen)
+          : [...turnInput];
+        for (const item of deltaInput) {
           stageItem(item as ResponseItem);
         }
         // Send request to OpenAI with retry on timeout
@@ -505,44 +664,42 @@ export class AgentLoop {
             const mergedInstructions = [prefix, this.instructions]
               .filter(Boolean)
               .join("\n");
+
+            const responseCall =
+              !this.config.provider ||
+              this.config.provider?.toLowerCase() === "openai"
+                ? (params: ResponseCreateParams) =>
+                    this.oai.responses.create(params)
+                : (params: ResponseCreateParams) =>
+                    responsesCreateViaChatCompletions(
+                      this.oai,
+                      params as ResponseCreateParams & { stream: true },
+                    );
             log(
               `instructions (length ${mergedInstructions.length}): ${mergedInstructions}`,
             );
+
             // eslint-disable-next-line no-await-in-loop
-            stream = await this.oai.responses.create({
+            stream = await responseCall({
               model: this.model,
               instructions: mergedInstructions,
-              previous_response_id: lastResponseId || undefined,
               input: turnInput,
               stream: true,
               parallel_tool_calls: false,
               reasoning,
               ...(this.config.flexMode ? { service_tier: "flex" } : {}),
-              tools: [
-                {
-                  type: "function",
-                  name: "shell",
-                  description: "Runs a shell command, and returns its output.",
-                  strict: false,
-                  parameters: {
-                    type: "object",
-                    properties: {
-                      command: { type: "array", items: { type: "string" } },
-                      workdir: {
-                        type: "string",
-                        description: "The working directory for the command.",
-                      },
-                      timeout: {
-                        type: "number",
-                        description:
-                          "The maximum time to wait for the command to complete in milliseconds.",
-                      },
-                    },
-                    required: ["command"],
-                    additionalProperties: false,
-                  },
-                },
-              ],
+              ...(this.disableResponseStorage
+                ? { store: false }
+                : {
+                    store: true,
+                    previous_response_id: lastResponseId || undefined,
+                  }),
+              tools: [shellTool],
+              // Explicitly tell the model it is allowed to pick whatever
+              // tool it deems appropriate.  Omitting this sometimes leads to
+              // the model ignoring the available tools and responding with
+              // plain text instead (resulting in a missing tool‑call).
+              tool_choice: "auto",
             });
             break;
           } catch (error) {
@@ -701,7 +858,6 @@ export class AgentLoop {
               this.onLoading(false);
               return;
             }
-
             throw error;
           }
         }
@@ -732,104 +888,240 @@ export class AgentLoop {
           return;
         }
 
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          for await (const event of stream) {
-            log(`AgentLoop.run(): response event ${event.type}`);
+        const MAX_STREAM_RETRIES = 5;
+        let streamRetryAttempt = 0;
 
-            // process and surface each item (no‑op until we can depend on streaming events)
-            if (event.type === "response.output_item.done") {
-              const item = event.item;
-              // 1) if it's a reasoning item, annotate it
-              type ReasoningItem = { type?: string; duration_ms?: number };
-              const maybeReasoning = item as ReasoningItem;
-              if (maybeReasoning.type === "reasoning") {
-                maybeReasoning.duration_ms = Date.now() - thinkingStart;
-              }
-              if (item.type === "function_call") {
-                // Track outstanding tool call so we can abort later if needed.
-                // The item comes from the streaming response, therefore it has
-                // either `id` (chat) or `call_id` (responses) – we normalise
-                // by reading both.
-                const callId =
-                  (item as { call_id?: string; id?: string }).call_id ??
-                  (item as { id?: string }).id;
-                if (callId) {
-                  this.pendingAborts.add(callId);
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            for await (const event of stream as AsyncIterable<ResponseEvent>) {
+              log(`AgentLoop.run(): response event ${event.type}`);
+
+              // process and surface each item (no-op until we can depend on streaming events)
+              if (event.type === "response.output_item.done") {
+                const item = event.item;
+                // 1) if it's a reasoning item, annotate it
+                type ReasoningItem = { type?: string; duration_ms?: number };
+                const maybeReasoning = item as ReasoningItem;
+                if (maybeReasoning.type === "reasoning") {
+                  maybeReasoning.duration_ms = Date.now() - thinkingStart;
                 }
-              } else {
-                stageItem(item as ResponseItem);
-              }
-            }
-
-            if (event.type === "response.completed") {
-              if (thisGeneration === this.generation && !this.canceled) {
-                for (const item of event.response.output) {
+                if (item.type === "function_call") {
+                  // Track outstanding tool call so we can abort later if needed.
+                  // The item comes from the streaming response, therefore it has
+                  // either `id` (chat) or `call_id` (responses) – we normalise
+                  // by reading both.
+                  const callId =
+                    (item as { call_id?: string; id?: string }).call_id ??
+                    (item as { id?: string }).id;
+                  if (callId) {
+                    this.pendingAborts.add(callId);
+                  }
+                } else {
                   stageItem(item as ResponseItem);
                 }
               }
-              if (event.response.status === "completed") {
-                // TODO: remove this once we can depend on streaming events
-                const newTurnInput = await this.processEventsWithoutStreaming(
-                  event.response.output,
-                  stageItem,
-                );
-                turnInput = newTurnInput;
+
+              if (event.type === "response.completed") {
+                if (thisGeneration === this.generation && !this.canceled) {
+                  for (const item of event.response.output) {
+                    stageItem(item as ResponseItem);
+                  }
+                }
+                if (
+                  event.response.status === "completed" ||
+                  (event.response.status as unknown as string) ===
+                    "requires_action"
+                ) {
+                  // TODO: remove this once we can depend on streaming events
+                  const newTurnInput = await this.processEventsWithoutStreaming(
+                    event.response.output,
+                    stageItem,
+                  );
+
+                  // When we do not use server‑side storage we maintain our
+                  // own transcript so that *future* turns still contain full
+                  // conversational context. However, whether we advance to
+                  // another loop iteration should depend solely on the
+                  // presence of *new* input items (i.e. items that were not
+                  // part of the previous request). Re‑sending the transcript
+                  // by itself would create an infinite request loop because
+                  // `turnInput.length` would never reach zero.
+
+                  if (this.disableResponseStorage) {
+                    // 1) Append the freshly emitted output to our local
+                    //    transcript (minus non‑message items the model does
+                    //    not need to see again).
+                    const cleaned = filterToApiMessages(
+                      event.response.output.map(stripInternalFields),
+                    );
+                    this.transcript.push(...cleaned);
+
+                    // 2) Determine the *delta* (newTurnInput) that must be
+                    //    sent in the next iteration. If there is none we can
+                    //    safely terminate the loop – the transcript alone
+                    //    does not constitute new information for the
+                    //    assistant to act upon.
+
+                    const delta = filterToApiMessages(
+                      newTurnInput.map(stripInternalFields),
+                    );
+
+                    if (delta.length === 0) {
+                      // No new input => end conversation.
+                      turnInput = [];
+                    } else {
+                      // Re‑send full transcript *plus* the new delta so the
+                      // stateless backend receives complete context.
+                      turnInput = [...this.transcript, ...delta];
+                      // The prefix ends at the current transcript length –
+                      // everything after this index is new for the next
+                      // iteration.
+                      transcriptPrefixLen = this.transcript.length;
+                    }
+                  } else {
+                    turnInput = newTurnInput;
+                  }
+                }
+                lastResponseId = event.response.id;
+                this.onLastResponseId(event.response.id);
               }
-              lastResponseId = event.response.id;
-              this.onLastResponseId(event.response.id);
             }
-          }
-        } catch (err: unknown) {
-          // Gracefully handle an abort triggered via `cancel()` so that the
-          // consumer does not see an unhandled exception.
-          if (err instanceof Error && err.name === "AbortError") {
-            if (!this.canceled) {
-              // It was aborted for some other reason; surface the error.
-              throw err;
+            // Stream finished successfully – leave the retry loop.
+            break;
+          } catch (err: unknown) {
+            const isRateLimitError = (e: unknown): boolean => {
+              if (!e || typeof e !== "object") {
+                return false;
+              }
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const ex: any = e;
+              return (
+                ex.status === 429 ||
+                ex.code === "rate_limit_exceeded" ||
+                ex.type === "rate_limit_exceeded"
+              );
+            };
+
+            if (
+              isRateLimitError(err) &&
+              streamRetryAttempt < MAX_STREAM_RETRIES
+            ) {
+              streamRetryAttempt += 1;
+
+              const waitMs =
+                RATE_LIMIT_RETRY_WAIT_MS * 2 ** (streamRetryAttempt - 1);
+              log(
+                `OpenAI stream rate‑limited – retry ${streamRetryAttempt}/${MAX_STREAM_RETRIES} in ${waitMs} ms`,
+              );
+
+              // Give the server a breather before retrying.
+              // eslint-disable-next-line no-await-in-loop
+              await new Promise((res) => setTimeout(res, waitMs));
+
+              // Re‑create the stream with the *same* parameters.
+              let reasoning: Reasoning | undefined;
+              if (this.model.startsWith("o")) {
+                reasoning = { effort: "high" };
+                if (this.model === "o3" || this.model === "o4-mini") {
+                  reasoning.summary = "auto";
+                }
+              }
+
+              const mergedInstructions = [prefix, this.instructions]
+                .filter(Boolean)
+                .join("\n");
+
+              const responseCall =
+                !this.config.provider ||
+                this.config.provider?.toLowerCase() === "openai"
+                  ? (params: ResponseCreateParams) =>
+                      this.oai.responses.create(params)
+                  : (params: ResponseCreateParams) =>
+                      responsesCreateViaChatCompletions(
+                        this.oai,
+                        params as ResponseCreateParams & { stream: true },
+                      );
+
+              log(
+                "agentLoop.run(): responseCall(1): turnInput: " +
+                  JSON.stringify(turnInput),
+              );
+              // eslint-disable-next-line no-await-in-loop
+              stream = await responseCall({
+                model: this.model,
+                instructions: mergedInstructions,
+                input: turnInput,
+                stream: true,
+                parallel_tool_calls: false,
+                reasoning,
+                ...(this.config.flexMode ? { service_tier: "flex" } : {}),
+                ...(this.disableResponseStorage
+                  ? { store: false }
+                  : {
+                      store: true,
+                      previous_response_id: lastResponseId || undefined,
+                    }),
+                tools: [shellTool],
+                tool_choice: "auto",
+              });
+
+              this.currentStream = stream;
+              // Continue to outer while to consume new stream.
+              continue;
             }
-            this.onLoading(false);
-            return;
+
+            // Gracefully handle an abort triggered via `cancel()` so that the
+            // consumer does not see an unhandled exception.
+            if (err instanceof Error && err.name === "AbortError") {
+              if (!this.canceled) {
+                // It was aborted for some other reason; surface the error.
+                throw err;
+              }
+              this.onLoading(false);
+              return;
+            }
+            // Suppress internal stack on JSON parse failures
+            if (err instanceof SyntaxError) {
+              this.onItem({
+                id: `error-${Date.now()}`,
+                type: "message",
+                role: "system",
+                content: [
+                  {
+                    type: "input_text",
+                    text: "⚠️ Failed to parse streaming response (invalid JSON). Please `/clear` to reset.",
+                  },
+                ],
+              });
+              this.onLoading(false);
+              return;
+            }
+            // Handle OpenAI API quota errors
+            if (
+              err instanceof Error &&
+              (err as { code?: string }).code === "insufficient_quota"
+            ) {
+              this.onItem({
+                id: `error-${Date.now()}`,
+                type: "message",
+                role: "system",
+                content: [
+                  {
+                    type: "input_text",
+                    text: "⚠️ Insufficient quota. Please check your billing details and retry.",
+                  },
+                ],
+              });
+              this.onLoading(false);
+              return;
+            }
+            throw err;
+          } finally {
+            this.currentStream = null;
           }
-          // Suppress internal stack on JSON parse failures
-          if (err instanceof SyntaxError) {
-            this.onItem({
-              id: `error-${Date.now()}`,
-              type: "message",
-              role: "system",
-              content: [
-                {
-                  type: "input_text",
-                  text: "⚠️ Failed to parse streaming response (invalid JSON). Please `/clear` to reset.",
-                },
-              ],
-            });
-            this.onLoading(false);
-            return;
-          }
-          // Handle OpenAI API quota errors
-          if (
-            err instanceof Error &&
-            (err as { code?: string }).code === "insufficient_quota"
-          ) {
-            this.onItem({
-              id: `error-${Date.now()}`,
-              type: "message",
-              role: "system",
-              content: [
-                {
-                  type: "input_text",
-                  text: "⚠️ Insufficient quota. Please check your billing details and retry.",
-                },
-              ],
-            });
-            this.onLoading(false);
-            return;
-          }
-          throw err;
-        } finally {
-          this.currentStream = null;
-        }
+        } // end while retry loop
 
         log(
           `Turn inputs (${turnInput.length}) - ${turnInput
@@ -904,7 +1196,11 @@ export class AgentLoop {
       // End of main logic. The corresponding catch block for the wrapper at the
       // start of this method follows next.
     } catch (err) {
-      // Special handling for premature close (e.g., ERR_STREAM_PREMATURE_CLOSE)
+      // Handle known transient network/streaming issues so they do not crash the
+      // CLI. We currently match Node/undici's `ERR_STREAM_PREMATURE_CLOSE`
+      // error which manifests when the HTTP/2 stream terminates unexpectedly
+      // (e.g. during brief network hiccups).
+
       const isPrematureClose =
         err instanceof Error &&
         // eslint-disable-next-line
@@ -925,7 +1221,7 @@ export class AgentLoop {
             ],
           });
         } catch {
-          /* no‑op – emitting the error message is best‑effort */
+          /* no-op – emitting the error message is best‑effort */
         }
         this.onLoading(false);
         return;
@@ -945,6 +1241,7 @@ export class AgentLoop {
       // If matched we emit a single system message to inform the user and
       // resolve gracefully so callers can choose to retry.
       // -------------------------------------------------------------------
+
       const NETWORK_ERRNOS = new Set([
         "ECONNRESET",
         "ECONNREFUSED",
@@ -1003,6 +1300,8 @@ export class AgentLoop {
 
       if (isNetworkOrServerError) {
         try {
+          const msgText =
+            "⚠️  Network error while contacting OpenAI. Please check your connection and try again.";
           this.onItem({
             id: `error-${Date.now()}`,
             type: "message",
@@ -1010,105 +1309,118 @@ export class AgentLoop {
             content: [
               {
                 type: "input_text",
-                text: `⚠️  Network error: ${
-                  err instanceof Error ? err.message : String(err)
-                }. Please check your connection or try again later.`,
+                text: msgText,
               },
             ],
           });
         } catch {
-          /* best effort */
+          /* best‑effort */
         }
         this.onLoading(false);
         return;
       }
 
-      // --- NEW: Generic catch-all to ensure no unhandled errors crash the app ---
-      try {
-        // eslint-disable-next-line no-console
-        console.error("[AgentLoop] Unexpected error:", err);
-        this.onItem({
-          id: `error-${Date.now()}`,
-          type: "message",
-          role: "system",
-          content: [
-            {
-              type: "input_text",
-              text: `⚠️  Unexpected error: ${
-                err instanceof Error ? err.message : String(err)
-              }. Please try again or contact support if the problem persists.`,
-            },
-          ],
-        });
-      } catch (loggingErr) {
-        // eslint-disable-next-line no-console
-        console.error(
-          "[AgentLoop] Error while handling unexpected error:",
-          loggingErr,
-        );
-        /* best effort */
+      const isInvalidRequestError = () => {
+        if (!err || typeof err !== "object") {
+          return false;
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const e: any = err;
+
+        if (
+          e.type === "invalid_request_error" &&
+          e.code === "model_not_found"
+        ) {
+          return true;
+        }
+
+        if (
+          e.cause &&
+          e.cause.type === "invalid_request_error" &&
+          e.cause.code === "model_not_found"
+        ) {
+          return true;
+        }
+
+        return false;
+      };
+
+      if (isInvalidRequestError()) {
+        try {
+          // Extract request ID and error details from the error object
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const e: any = err;
+
+          const reqId =
+            e.request_id ??
+            (e.cause && e.cause.request_id) ??
+            (e.cause && e.cause.requestId);
+
+          const errorDetails = [
+            `Status: ${e.status || (e.cause && e.cause.status) || "unknown"}`,
+            `Code: ${e.code || (e.cause && e.cause.code) || "unknown"}`,
+            `Type: ${e.type || (e.cause && e.cause.type) || "unknown"}`,
+            `Message: ${
+              e.message || (e.cause && e.cause.message) || "unknown"
+            }`,
+          ].join(", ");
+
+          const msgText = `⚠️  OpenAI rejected the request${
+            reqId ? ` (request ID: ${reqId})` : ""
+          }. Error details: ${errorDetails}. Please verify your settings and try again.`;
+
+          this.onItem({
+            id: `error-${Date.now()}`,
+            type: "message",
+            role: "system",
+            content: [
+              {
+                type: "input_text",
+                text: msgText,
+              },
+            ],
+          });
+        } catch {
+          /* best-effort */
+        }
+        this.onLoading(false);
+        return;
       }
-      this.onLoading(false);
-      return;
+
+      // Re‑throw all other errors so upstream handlers can decide what to do.
+      throw err;
     }
   }
 
-  /**
-   * Returns the MCP prompt summary (if any).
-   */
-  public getMcpPromptSummary(): string | null {
-    return this.mcpPromptSummary;
-  }
-
-  /**
-   * Returns the MCP tool registry (if any).
-   */
-  public getMcpToolRegistry(): McpToolRegistry | null {
-    return this.mcpToolRegistry;
-  }
-
-  /**
-   * Test-only setter for MCP tool exposure mode.
-   * @internal
-   */
-  // public setMcpToolExposureMode(mode: McpToolExposureMode) {
-  //   this.mcpToolExposureMode = mode;
-  // }
-}
-
-function getDefaultMcpConfigPath(): string {
-  return path.join(os.homedir(), ".codex", "mcp_servers.json");
-}
-
-function discoverMcpConfigPath(): string {
-  // 1. Env override
-  if (process.env["MCP_CONFIG_PATH"]) return process.env["MCP_CONFIG_PATH"]!;
-  // 2. CLI flag override
-  const cliIdx = process.argv.indexOf("--mcp-config");
-  if (cliIdx !== -1 && process.argv.length > cliIdx + 1) {
-    return process.argv[cliIdx + 1]!;
-  }
-  // 3. Default location
-  return getDefaultMcpConfigPath();
-}
-
-let mcpConfig: unknown;
-try {
-  mcpConfig = loadMcpConfig(discoverMcpConfigPath());
-} catch (err) {
-  // Optionally, fallback to local file for compatibility
-  try {
-    mcpConfig = loadMcpConfig(path.resolve(process.cwd(), "claude_desktop_config.json"));
-  } catch (e) {
-    mcpConfig = undefined;
-    if (process.env["CLI_DEBUG"] || process.env["NODE_ENV"] === "development") {
-      console.warn("[MCP] No valid MCP config found:", err, e);
+  // we need until we can depend on streaming events
+  private async processEventsWithoutStreaming(
+    output: Array<ResponseInputItem>,
+    emitItem: (item: ResponseItem) => void,
+  ): Promise<Array<ResponseInputItem>> {
+    // If the agent has been canceled we should short‑circuit immediately to
+    // avoid any further processing (including potentially expensive tool
+    // calls). Returning an empty array ensures the main run‑loop terminates
+    // promptly.
+    if (this.canceled) {
+      return [];
     }
+    const turnInput: Array<ResponseInputItem> = [];
+    for (const item of output) {
+      if (item.type === "function_call") {
+        if (alreadyProcessedResponses.has(item.id)) {
+          continue;
+        }
+        alreadyProcessedResponses.add(item.id);
+        // eslint-disable-next-line no-await-in-loop
+        const result = await this.handleFunctionCall(item);
+        turnInput.push(...result);
+      }
+      emitItem(item as ResponseItem);
+    }
+    return turnInput;
   }
 }
-
-// Removed unused export of mcpConfig to resolve lint warning
-// export { mcpConfig };
 
 const prefix = `You are operating as and within the Codex CLI, a terminal-based agentic coding assistant built by OpenAI. It wraps OpenAI models to enable natural language interaction with a local codebase. You are expected to be precise, safe, and helpful.
 
@@ -1152,7 +1464,21 @@ You MUST adhere to the following criteria when executing the task:
             - For smaller tasks, describe in brief bullet points
             - For more complex tasks, include brief high-level description, use bullet points, and include details that would be relevant to a code reviewer.
 - If completing the user's task DOES NOT require writing or modifying files (e.g., the user asks a question about the code base):
-    - Respond in a friendly tune as a remote teammate, who is knowledgeable, capable and eager to help with coding.
+    - Respond in a friendly tone as a remote teammate, who is knowledgeable, capable and eager to help with coding.
 - When your task involves writing or modifying files:
     - Do NOT tell the user to "save the file" or "copy the code into a file" if you already created or modified the file using \`apply_patch\`. Instead, reference the file as already saved.
     - Do NOT show the full contents of large files you have already written, unless the user explicitly asks for them.`;
+
+function filterToApiMessages(
+  items: Array<ResponseInputItem>,
+): Array<ResponseInputItem> {
+  return items.filter((it) => {
+    if (it.type === "message" && it.role === "system") {
+      return false;
+    }
+    if (it.type === "reasoning") {
+      return false;
+    }
+    return true;
+  });
+}
