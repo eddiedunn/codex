@@ -315,45 +315,59 @@ export class AgentLoop {
   private async handleFunctionCall(
     item: ResponseFunctionToolCall,
   ): Promise<Array<ResponseInputItem>> {
+    // Diagnostic logging for test debugging
+    log(`[handleFunctionCall] item: ${JSON.stringify(item)}`);
     if (this.canceled) {
+      log(`[handleFunctionCall] canceled, returning []`);
       return [];
     }
     const name: string = typeof item.name === "string" ? item.name : "";
     const callId: string = typeof item.id === "string" ? item.id : "unknown";
     const rawArguments = item.arguments;
+    log(`[handleFunctionCall] name: ${name}, callId: ${callId}, rawArguments: ${JSON.stringify(rawArguments)}`);
     let parsedArgs: Record<string, any> = {};
     try {
       parsedArgs = typeof rawArguments === "string" ? JSON.parse(rawArguments) : (rawArguments ?? {});
+      log(`[handleFunctionCall] parsedArgs: ${JSON.stringify(parsedArgs)}`);
     } catch (err) {
+      log(`[handleFunctionCall] argument parsing error: ${(err as Error).message}`);
       return [{
         type: "function_call_output",
         call_id: callId,
-        output: JSON.stringify({ error: "invalid arguments: " + String(err) }),
+        output: JSON.stringify({ error: `invalid arguments: ${err}` }),
       }];
     }
-    if (!name) {
-      return [{
-        type: "function_call_output",
-        call_id: callId,
-        output: JSON.stringify({ error: "tool call missing name" }),
-      }];
+    // MCP tool call path
+    if (this._injectedInvokeMcpTool) {
+      log(`[handleFunctionCall] Using injected MCP tool handler`);
     }
-    // MCP tool call
-    if (name.startsWith("mcp.")) {
-      const outputItem: any = { type: "function_call_output", call_id: callId };
-      try {
-        const toolName = name.slice(4);
-        const result = await this.invokeMcpTool(toolName, parsedArgs);
-        outputItem.output = JSON.stringify(result);
-      } catch (err) {
-        outputItem.output = JSON.stringify({ error: String(err) });
+    // If the tool name starts with "mcp.", strip the prefix for the injected handler
+    if (name && this._injectedInvokeMcpTool) {
+      let toolNameForHandler = name;
+      if (toolNameForHandler.startsWith("mcp.")) {
+        toolNameForHandler = toolNameForHandler.slice(4);
       }
-      return [outputItem];
+      try {
+        const result = await this._injectedInvokeMcpTool(toolNameForHandler, parsedArgs);
+        log(`[handleFunctionCall] MCP tool result: ${JSON.stringify(result)}`);
+        return [{
+          type: "function_call_output",
+          call_id: callId,
+          output: JSON.stringify(result),
+        }];
+      } catch (err) {
+        log(`[handleFunctionCall] MCP tool error: ${(err as Error).message}`);
+        return [{
+          type: "function_call_output",
+          call_id: callId,
+          output: JSON.stringify({ error: String(err) }),
+        }];
+      }
     }
-    // Built-in tools (example: container.exec, shell)
+    // Built-in tool (container.exec/shell)
     if (name === "container.exec" || name === "shell") {
+      log(`[handleFunctionCall] Built-in tool path for ${name}`);
       // ...existing logic for built-in tool calls...
-      // (preserve your handling here)
       // If you have additionalItemsFromExec, check for undefined
       // (This is a placeholder for your actual exec logic)
       const outputItem: any = { type: "function_call_output", call_id: callId };
@@ -361,6 +375,7 @@ export class AgentLoop {
       return [outputItem];
     }
     // Unknown tool
+    log(`[handleFunctionCall] Unknown tool: ${name}`);
     return [{
       type: "function_call_output",
       call_id: callId,

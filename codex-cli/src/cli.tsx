@@ -206,7 +206,16 @@ complete -c codex -a '(_fish_complete_path)' -d 'file path'`,
 }
 
 if (cli.input[0] === "mcp-tools") {
-  const { listMcpTools } = await import("./utils/agent/mcp-client");
+  // Enable testability: allow MOCK_MCP_CLIENT env var to swap in mock implementation
+  console.log("DEBUG: cwd:", process.cwd());
+  console.log("DEBUG: import path:", "./utils/agent/mock-mcp-client.js");
+  let listMcpTools;
+  if (process.env.MOCK_MCP_CLIENT) {
+    listMcpTools = (await import("./utils/agent/mock-mcp-client.js")).listMcpTools;
+  } else {
+    console.log("DEBUG: import path:", "./utils/agent/mcp-client.js");
+    listMcpTools = (await import("./utils/agent/mcp-client.js")).listMcpTools;
+  }
   try {
     const tools = await listMcpTools();
     if (!tools || tools.length === 0) {
