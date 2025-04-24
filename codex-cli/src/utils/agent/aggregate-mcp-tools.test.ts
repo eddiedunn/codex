@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { aggregateMcpToolsGeneric } from "./aggregate-mcp-tools";
+import { aggregateMcpToolsGeneric } from "./aggregate-mcp-tools.js";
 
 describe("aggregateMcpToolsGeneric", () => {
   let mcpConfig: any;

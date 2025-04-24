@@ -1,4 +1,4 @@
-import type { McpServersConfig } from "./mcp-config";
+import type { McpServersConfig } from "./mcp-config.js";
 
 /**
  * Aggregates tools/resources from all MCP servers defined in config.

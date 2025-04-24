@@ -1,5 +1,5 @@
 import type { CommandConfirmation } from "./agent-loop.js";
-import type { AppConfig } from "../config";
+import type { AppConfig } from "../config.js";
 import type { ExecInput } from "./sandbox/interface.js";
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { ResponseInputItem } from "openai/resources/responses/responses.mjs";

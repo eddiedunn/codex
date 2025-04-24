@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
     "outDir": "dist",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "esnext",
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "types": ["node", "vitest"],
+    "types": ["node"],
     "baseUrl": "./",
     "resolveJsonModule": true,
     "jsx": "react",

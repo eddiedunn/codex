@@ -1,16 +1,22 @@
 // @ts-ignore MCP SDK package has no types and is not ESM-compatible with Vitest
-import { createRequire } from 'module';
-import path from 'path';
-import { loadMcpConfig } from './load-mcp-config';
-import os from 'os';
+import * as path from 'path';
+import * as os from 'os';
+import { loadMcpConfig } from './load-mcp-config.js';
 import { spawn } from 'child_process';
-import type { McpServersConfig } from './mcp-config';
-import { aggregateMcpToolsGeneric } from "./aggregate-mcp-tools";
-
-const require = createRequire(import.meta.url);
+import type { McpServersConfig } from './mcp-config.js';
+import { aggregateMcpToolsGeneric } from "./aggregate-mcp-tools.js";
+import axios from 'axios';
+import { lookpath } from 'lookpath';
+import * as fs from 'fs';
 
 // Use the CJS proxy for MCP SDK Client
-const { Client } = require('./mcp-sdk-cjs-proxy.cjs');
+let Client: any;
+async function getClient() {
+  if (!Client) {
+    Client = (await import('./mcp-sdk-cjs-proxy.cjs')).Client;
+  }
+  return Client;
+}
 
 // MCP config loader/discovery logic
 function getDefaultMcpConfigPath() {
@@ -39,18 +45,93 @@ try {
   }
 }
 
-// Utility to launch a server by name from config
-export function launchMcpServer(serverName: string): Promise<ReturnType<typeof spawn>> {
-  if (!mcpConfig) throw new Error('No MCP config loaded');
-  const entry = mcpConfig.mcpServers[serverName];
-  if (!entry) throw new Error(`No server named '${serverName}' in MCP config`);
-  const child = spawn(entry.command, entry.args, {
-    env: { ...process.env, ...(entry.env || {}) },
-    stdio: 'inherit',
-    cwd: process.cwd(),
-    shell: process.platform === 'win32',
+// Utility to check if a command exists in PATH
+async function checkCommandAvailable(cmd: string): Promise<boolean> {
+  return !!(await lookpath(cmd));
+}
+
+// --- Launch MCP server and wait for ready message ---
+export async function launchMcpServer(serverName: string): Promise<void> {
+  const entry = mcpConfig?.mcpServers?.[serverName];
+  if (!entry) throw new Error(`No MCP server entry for '${serverName}'`);
+  if (entry.process) {
+    // Already launched
+    return;
+  }
+  const env = { ...process.env, ...entry.env };
+  const cmd = entry.command;
+  const args = entry.args || [];
+  console.log(`[MCP] Launching MCP stdio server '${serverName}' with command: ${cmd} ${args.join(' ')} | env: ${JSON.stringify(entry.env)}`);
+  const proc = spawn(cmd, args, { env, stdio: ['pipe', 'pipe', 'pipe'] });
+  entry.process = proc;
+  proc.stdout.setEncoding('utf8');
+  proc.stderr.setEncoding('utf8');
+
+  // Wait for ready message on stdout
+  await new Promise<void>((resolve, reject) => {
+    let ready = false;
+    const timeout = setTimeout(() => {
+      if (!ready) {
+        console.warn(`[MCP][${serverName}] WARNING: Server did not become ready after 5s.`);
+        resolve(); // Still resolve, but warn
+      }
+    }, 5000);
+    proc.stdout.on('data', (data: string) => {
+      if (data.includes('MCP Server running on stdio')) {
+        if (!ready) {
+          ready = true;
+          clearTimeout(timeout);
+          console.log(`[MCP][${serverName}] MCP server is ready.`);
+          resolve();
+        }
+      }
+    });
+    proc.stderr.on('data', (data: string) => {
+      console.log(`[MCP][${serverName}] stderr: ${data}`);
+      if (data.includes('MCP Server running on stdio')) {
+        if (!ready) {
+          ready = true;
+          clearTimeout(timeout);
+          console.log(`[MCP][${serverName}] MCP server is ready (stderr).`);
+          resolve();
+        }
+      }
+    });
+    proc.on('exit', (code) => {
+      if (!ready) {
+        clearTimeout(timeout);
+        reject(new Error(`[MCP][${serverName}] MCP server exited before ready (code ${code})`));
+      }
+    });
   });
-  return Promise.resolve(child);
+}
+
+// Utility to check if MCP server is running
+export async function isMcpServerRunning(url: string): Promise<boolean> {
+  try {
+    // Try a health endpoint or root; adjust as needed for your MCP server
+    const res = await axios.get(url + '/health');
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
+// Wrap connect to auto-start server if needed
+export async function connectWithAutoStart(client: any, serverName: string, url: string, timeoutMs = 10000) {
+  if (!(await isMcpServerRunning(url))) {
+    await launchMcpServer(serverName);
+    // Wait for server to come up
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      if (await isMcpServerRunning(url)) break;
+      await new Promise(res => setTimeout(res, 500));
+    }
+    if (!(await isMcpServerRunning(url))) {
+      throw new Error('MCP server failed to start');
+    }
+  }
+  await client.connect();
 }
 
 // --- MCP Client Instantiation (Advanced Transport Config) ---
@@ -62,64 +143,79 @@ export function launchMcpServer(serverName: string): Promise<ReturnType<typeof s
  *
  * @param opts Optional overrides: { stdioServerName?: string }
  */
-export function createMcpClient(opts: { stdioServerName?: string } = {}) {
-  const transportType = process.env["MCP_TRANSPORT"] || "http";
-  const clientInfo = { name: "codex", version: "1.0.0" };
-  let options;
-  if (transportType === "stdio") {
-    // Prefer explicit server name via env or opts, else first server
-    const stdioServerName = opts.stdioServerName || process.env.MCP_STDIO_SERVER;
-    let stdioConfig;
-    if (stdioServerName && mcpConfig && mcpConfig.mcpServers[stdioServerName]) {
-      stdioConfig = mcpConfig.mcpServers[stdioServerName];
-    } else if (mcpConfig) {
-      stdioConfig = Object.values(mcpConfig.mcpServers).find(srv => srv.command && srv.args);
-    }
-    if (!stdioConfig) {
-      throw new Error("No MCP server config found for stdio transport");
-    }
-    options = {
-      transport: "stdio",
-      command: stdioConfig.command,
-      args: stdioConfig.args,
-      env: { ...process.env, ...(stdioConfig.env || {}) },
-      cwd: process.cwd(),
-      shell: process.platform === 'win32',
-    };
+export async function createMcpClient(opts: { stdioServerName?: string } = {}) {
+  // Determine transport type per-server
+  let transportType: 'stdio' | 'http' | 'sse' = 'http';
+  let selectedServer: any = undefined;
+  if (opts.stdioServerName) {
+    selectedServer = mcpConfig?.mcpServers[opts.stdioServerName];
+    transportType = 'stdio';
   } else {
-    options = {
-      transport: "http",
-      url: resolveMcpServerUrl(),
-    };
-  }
-  return new Client(clientInfo, options);
-}
-
-// Default export for legacy code
-export const mcpClient = createMcpClient();
-
-// Default: Use MCP_SERVER_URL env or first HTTP/SSE server in config, else fallback
-function resolveMcpServerUrl(): string {
-  if (process.env["MCP_SERVER_URL"]) return process.env["MCP_SERVER_URL"]!;
-  if (mcpConfig) {
-    for (const [name, entry] of Object.entries(mcpConfig.mcpServers)) {
-      // Heuristic: If args contain 'http' or '--port', treat as HTTP/SSE
-      if (entry.args.some(arg => typeof arg === 'string' && (arg.startsWith('http') || arg === '--port'))) {
-        // Try to find a URL in args
-        const urlArg = entry.args.find(arg => typeof arg === 'string' && arg.startsWith('http'));
-        if (urlArg) return urlArg;
+    // Prefer explicit stdio servers, else HTTP/SSE
+    for (const [name, entry] of Object.entries(mcpConfig?.mcpServers || {})) {
+      if (entry.command && entry.command === 'npx' && entry.args?.includes('@modelcontextprotocol/server-brave-search')) {
+        selectedServer = entry;
+        transportType = 'stdio';
+        break;
+      } else if (entry.url && entry.url.startsWith('http')) {
+        selectedServer = entry;
+        transportType = entry.sse ? 'sse' : 'http';
+        break;
       }
     }
   }
-  return 'http://localhost:8080';
+  if (transportType === 'stdio' && selectedServer) {
+    // Use stdio transport (Brave, etc) with correct SDK pattern
+    const { command, args, env } = selectedServer;
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
+    const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js');
+    const transport = new StdioClientTransport({
+      command,
+      args,
+      env: { ...process.env, ...(env || {}) },
+    });
+    const client = new Client({
+      name: 'codex-cli',
+      version: '1.0.0',
+    });
+    console.log('[MCP][DEBUG] Connecting MCP Client to stdio transport:', { command, args, env });
+    await client.connect(transport);
+    return client;
+  } else if (selectedServer && selectedServer.url) {
+    // Use HTTP or SSE
+    console.log('[MCP][DEBUG] Creating MCP Client with HTTP/SSE url:', selectedServer.url, 'transport:', transportType);
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
+    return new Client(selectedServer.url, { transport: transportType });
+  }
+  // Fallback: try MCP_SERVER_URL env or default
+  const url = process.env.MCP_SERVER_URL || 'http://localhost:8080';
+  console.log('[MCP][DEBUG] Creating MCP Client with fallback url:', url);
+  const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
+  return new Client(url, { transport: 'http' });
 }
 
+// FIX: Ensure mcpClient is a resolved client, not a Promise
+let mcpClientInstance: any = undefined;
+export const mcpClientPromise = createMcpClient();
+export async function getMcpClient() {
+  if (!mcpClientInstance) {
+    mcpClientInstance = await mcpClientPromise;
+    console.debug('[DEBUG][MCP] mcpClient resolved:', mcpClientInstance);
+  }
+  return mcpClientInstance;
+}
+
+// For legacy compatibility, export mcpClient as a getter function
+export const mcpClient = getMcpClient;
+
 export async function listMcpTools() {
-  return await mcpClient.listTools();
+  const client = await getMcpClient();
+  return await client.listTools();
 }
 
 export async function invokeMcpTool(toolName: string, params: Record<string, any>) {
-  return await mcpClient.invokeTool(toolName, params);
+  const client = await getMcpClient();
+  return await client.invokeTool(toolName, params);
 }
 
 /**
@@ -127,13 +223,108 @@ export async function invokeMcpTool(toolName: string, params: Record<string, any
  * Returns a flat array of tools/resources, each tagged with its server.
  */
 export async function aggregateMcpTools(): Promise<Array<{ server: string; tool: any }>> {
-  if (!mcpConfig) throw new Error('No MCP config loaded');
-  // For now, use the same mcpClient instance for all servers (TODO: per-server client)
-  return aggregateMcpToolsGeneric({
-    mcpConfig,
-    mcpClientFactory: (_serverName) => mcpClient,
-  });
+  // Log MCP config path and contents
+  const configPath = process.env.MCP_CONFIG_PATH || '~/.codex/mcp_servers.json (default)';
+  console.log(`[DEBUG][MCP] aggregateMcpTools called. MCP_CONFIG_PATH: ${configPath}`);
+  if (!mcpConfig) {
+    console.log('[DEBUG][MCP] No MCP config loaded in aggregateMcpTools');
+    return [];
+  }
+  console.log(`[DEBUG][MCP] MCP config loaded: ${JSON.stringify(mcpConfig, null, 2)}`);
+  try {
+    const client = await getMcpClient();
+    console.log(`[DEBUG][MCP] typeof mcpClient: ${typeof client}, mcpClient:`, client);
+    if (!client) {
+      console.error('[DEBUG][MCP] mcpClient is undefined or null!');
+      return [];
+    }
+    if (typeof client.listTools !== 'function') {
+      console.error('[DEBUG][MCP] mcpClient.listTools is not a function! mcpClient:', client);
+      return [];
+    }
+    console.log('[DEBUG][MCP] Calling mcpClient.listTools()...');
+    let listToolsResult;
+    try {
+      listToolsResult = await client.listTools();
+      console.log(`[DEBUG][MCP] mcpClient.listTools() result:`, JSON.stringify(listToolsResult, null, 2));
+    } catch (err) {
+      console.error('[DEBUG][MCP] Error calling mcpClient.listTools():', err);
+      return [];
+    }
+    const tools = await aggregateMcpToolsGeneric({
+      mcpConfig,
+      mcpClientFactory: async (_serverName) => client,
+    });
+    console.log(`[DEBUG][MCP] aggregateMcpTools loaded ${tools.length} tools.`);
+    return tools;
+  } catch (err) {
+    console.error('[DEBUG][MCP] Top-level error in aggregateMcpTools:', err);
+    return [];
+  }
+}
+
+// --- DEBUG: Log MCP tool aggregation ---
+export async function debugAggregateMcpTools() {
+  if (!mcpConfig) {
+    console.log('[DEBUG] No MCP config loaded in debugAggregateMcpTools');
+    return [];
+  }
+  const { aggregateMcpToolsGeneric } = await import('./aggregate-mcp-tools.js');
+  // Use correct per-server stdio/HTTP client creation logic
+  const mcpClientFactory = async (serverName: string) => {
+    const entry = mcpConfig.mcpServers[serverName];
+    if (entry.command) {
+      // STDIO SERVER (Brave, etc)
+      const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
+      const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js');
+      const transport = new StdioClientTransport({
+        command: entry.command,
+        args: entry.args,
+        env: { ...process.env, ...(entry.env || {}) },
+      });
+      const client = new Client({ name: 'codex-cli', version: '1.0.0' });
+      console.log('[MCP][DEBUG] Connecting MCP Client to stdio transport:', { command: entry.command, args: entry.args, env: entry.env });
+      await client.connect(transport);
+      return client;
+    } else if (entry.url) {
+      // HTTP/SSE SERVER
+      const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
+      console.log('[MCP][DEBUG] Creating MCP Client with HTTP/SSE url:', entry.url);
+      return new Client(entry.url, { transport: entry.sse ? 'sse' : 'http' });
+    }
+    return null;
+  };
+  const results: Array<{ server: string; tool: any }> = [];
+  const skippedServers: string[] = [];
+  for (const serverName of Object.keys(mcpConfig.mcpServers)) {
+    try {
+      console.log(`[MCP] Listing tools for server '${serverName}'...`);
+      const client = await mcpClientFactory(serverName);
+      if (!client) {
+        skippedServers.push(serverName);
+        continue;
+      }
+      const toolsRaw = await client.listTools();
+      // Fix: Support both array and { tools: array } response
+      const tools = Array.isArray(toolsRaw) ? toolsRaw : toolsRaw?.tools;
+      if (!Array.isArray(tools)) {
+        throw new Error(`Unexpected tools format from server '${serverName}': ${JSON.stringify(toolsRaw)}`);
+      }
+      console.log(`[MCP][${serverName}] listTools() returned:`, JSON.stringify(tools));
+      for (const tool of tools) {
+        results.push({ server: serverName, tool });
+      }
+    } catch (err) {
+      console.error(`[MCP][${serverName}] Failed to list tools:`, err);
+      skippedServers.push(serverName);
+    }
+  }
+  if (skippedServers.length > 0) {
+    console.warn(`[MCP] Skipped servers due to missing or broken binaries: ${skippedServers.join(', ')}`);
+  }
+  console.log('[DEBUG] Raw MCP tools loaded:', JSON.stringify(results, null, 2));
+  return results;
 }
 
 export { mcpConfig };
-export { aggregateMcpToolsGeneric } from "./aggregate-mcp-tools";
+export { aggregateMcpToolsGeneric } from "./aggregate-mcp-tools.js";

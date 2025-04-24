@@ -1,5 +1,5 @@
-import { loadMcpConfig } from "./load-mcp-config";
-import type { McpServersConfig } from "./mcp-config";
+import { loadMcpConfig } from "./load-mcp-config.js";
+import type { McpServersConfig } from "./mcp-config.js";
 import { spawn } from "child_process";
 import os from "os";
 import path from "path";

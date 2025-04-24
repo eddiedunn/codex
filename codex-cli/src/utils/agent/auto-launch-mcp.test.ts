@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { autoLaunchAllMcpServers, _setMcpConfigForTest } from "./auto-launch-mcp";
+import { autoLaunchAllMcpServers, _setMcpConfigForTest } from "./auto-launch-mcp.js";
 import { spawn } from "child_process";
 
 vi.mock("child_process", () => {

@@ -1,5 +1,16 @@
 {
   "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/yourname/Desktop"
+      ]
+    },
+    "my-sse-server": {
+      "url": "http://localhost:8081"
+    },
     "sqlite": {
       "command": "uv",
       "args": [
@@ -9,15 +20,6 @@
         "mcp-server-sqlite",
         "--db-path",
         "./data/NEXUS_PRIME.db"
-      ]
-    },
-    "filesystem": {
-      "command": "node",
-      "args": [
-        "./node_modules/@modelcontextprotocol/server-filesystem/dist/index.js",
-        "./data",
-        "/",
-        "D:/"
       ]
     },
     "github": {

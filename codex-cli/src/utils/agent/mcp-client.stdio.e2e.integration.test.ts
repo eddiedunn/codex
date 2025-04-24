@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { spawn } from "child_process";
-import { createMcpClient } from "./mcp-client";
+import { createMcpClient } from "./mcp-client.js";
 
 const SERVER_COMMAND = "npx";
 const SERVER_ARGS = [

@@ -1,4 +1,4 @@
-import type { McpToolRegistry, McpToolExposureMode } from "./mcp-tool-exposure-types";
+import type { McpToolRegistry, McpToolExposureMode } from "./mcp-tool-exposure-types.js";
 
 export type McpToolExposureMode = "registry" | "prompt" | "hybrid" | "bypass";
 
@@ -7,7 +7,7 @@ export interface McpToolRegistry {
 }
 
 export async function buildMcpToolRegistry(...args: any[]): Promise<McpToolRegistry> {
-  const { aggregateMcpToolsGeneric } = await import("./mcp-client");
+  const { aggregateMcpToolsGeneric } = await import("./mcp-client.js");
   return aggregateMcpToolsGeneric(...args);
 }
 

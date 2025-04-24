@@ -16,15 +16,22 @@
     "husky:add": "husky add"
   },
   "devDependencies": {
+    "@types/diff": "^7.0.2",
+    "@types/marked-terminal": "^6.1.1",
     "git-cliff": "^2.8.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.1",
     "prettier": "^3.5.3",
     "ts-node": "^10.9.2",
-    "typescript": "^5.0.3"
+    "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.10.1"
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "axios": "^1.8.4",
+    "boxen": "^8.0.1",
+    "eventsource": "^3.0.6",
+    "fast-npm-meta": "^0.4.2",
+    "package-manager-detector": "^1.2.0"
   },
   "resolutions": {
     "braces": "^3.0.3",

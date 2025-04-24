@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Dynamically import the MCP client module so env vars are respected per test
-const MCP_CLIENT_PATH = "./mcp-client";
+const MCP_CLIENT_PATH = "./mcp-client.js";
 
 // Mock config for stdio
 const mockMcpConfig = {
@@ -39,7 +39,7 @@ describe("MCP Client Transport Integration", () => {
   it("uses stdio transport when MCP_TRANSPORT=stdio", async () => {
     process.env.MCP_TRANSPORT = "stdio";
     // Patch the config loader to inject our mock config
-    vi.doMock("./load-mcp-config", () => ({
+    vi.doMock("./load-mcp-config.js", () => ({
       loadMcpConfig: () => mockMcpConfig,
     }));
     // Re-import with mock in place

@@ -7,6 +7,34 @@
 
 ---
 
+## MCP Config Format
+
+See [`MCP_CONFIG_FORMAT.md`](./codex-cli/MCP_CONFIG_FORMAT.md) for the canonical Claude Desktop-compatible MCP config schema, including how to mix stdio and SSE servers in one config. Example config available at [`claude_desktop_config.example.json`](./codex-cli/claude_desktop_config.example.json).
+
+## Quick Example
+
+```jsonc
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/yourname/Desktop",
+      ],
+    },
+    "my-sse-server": {
+      "url": "http://localhost:8081",
+    },
+  },
+}
+```
+
+For full details and validation rules, see the linked documentation.
+
+---
+
 <details>
 <summary><strong>Table&nbsp;of&nbsp;Contents</strong></summary>
 
@@ -44,6 +72,8 @@
     - [Nix Flake Development](#nix-flake-development)
 - [Security & Responsible AI](#security--responsible-ai)
 - [License](#license)
+- [MCP Client Transport Modes](#mcp-client-transport-modes)
+- [MCP Tool Integration](#mcp-tool-integration)
 
 <!-- End ToC -->
 
@@ -563,6 +593,48 @@ Run the CLI via the flake app:
 ```bash
 nix run .#codex
 ```
+
+---
+
+## MCP Client Transport Modes
+
+Codex CLI supports two MCP client transport modes for connecting to Model Context Protocol servers:
+
+| Transport | Env Variable                   | Description                                                                                                          |
+| --------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| HTTP/SSE  | `MCP_TRANSPORT=http` (default) | Connects to MCP servers via HTTP(S) using Server-Sent Events (SSE). Requires `MCP_SERVER_URL` or a valid MCP config. |
+| stdio     | `MCP_TRANSPORT=stdio`          | Connects to MCP servers via stdio (process pipes). Uses the first server entry in your MCP config for command/args.  |
+
+### Usage
+
+- **HTTP/SSE (default):**
+  ```sh
+  node dist/cli.js
+  # or
+  MCP_TRANSPORT=http node dist/cli.js
+  ```
+- **stdio:**
+  ```sh
+  MCP_TRANSPORT=stdio node dist/cli.js
+  ```
+
+> The stdio mode is useful for in-process or local server communication. Make sure your MCP config (`.codex/mcp_servers.json`) has a valid server entry with the correct command and arguments.
+
+---
+
+## MCP Tool Integration
+
+Codex can act as an MCP client, enabling tool calls via the Model Context Protocol (MCP).
+
+### Manual Testing
+
+- You can manually test MCP tool calls by running integration tests (see `tests/agent-mcp-function-call.test.ts`).
+- For quick CLI testing, use or adapt the upcoming demo script (see `scripts/mcp-tool-demo.js`).
+
+### OpenAI 4.1 `tools` Field
+
+- The current implementation includes a hardcoded `tools` field in OpenAI requests (see `agent-loop.ts`).
+- **Limitation:** The `tools` field is not yet dynamically populated from the MCP tool registry. Only the built-in `shell` tool is exposed to the model.
 
 ---
 

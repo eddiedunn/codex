@@ -27,7 +27,8 @@
     "release": "pnpm run release:readme && pnpm run release:version && pnpm install && pnpm run release:build-and-publish",
     "test:cli:available": "vitest run tests/mcp-tools-cli.available.test.ts",
     "test:cli:empty": "vitest run tests/mcp-tools-cli.empty.test.ts",
-    "test:cli:error": "vitest run tests/mcp-tools-cli.error.test.ts"
+    "test:cli:error": "vitest run tests/mcp-tools-cli.error.test.ts",
+    "start": "pnpm run build && node dist/cli.js"
   },
   "files": [
     "dist"
@@ -43,6 +44,7 @@
     "file-type": "^20.1.0",
     "ink": "^5.2.0",
     "js-yaml": "^4.1.0",
+    "lookpath": "^1.2.3",
     "marked": "^15.0.7",
     "marked-terminal": "^7.3.0",
     "meow": "^13.2.0",
@@ -58,6 +60,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
+    "@modelcontextprotocol/server-brave-search": "^0.6.2",
     "@types/diff": "^7.0.2",
     "@types/js-yaml": "^4.0.9",
     "@types/marked-terminal": "^6.1.1",
@@ -80,7 +83,8 @@
     "prettier": "^2.8.7",
     "punycode": "^2.3.1",
     "semver": "^7.7.1",
-    "ts-node": "^10.9.1",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.3",
     "typescript": "^5.0.3",
     "vitest": "^3.1.1",
     "whatwg-url": "^14.2.0",

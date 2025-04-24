@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { aggregateMcpTools } from "./mcp-client";
+import { aggregateMcpTools } from "./mcp-client.js";
 
 // We'll mock mcpClient.listTools and mcpConfig
-vi.mock("./mcp-client", async (importOriginal) => {
+vi.mock("./mcp-client.js", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -16,7 +16,7 @@ describe("aggregateMcpTools", () => {
   let mcpConfigBackup: any;
   beforeEach(() => {
     // Patch mcpConfig directly (not ideal, but necessary for ESM singleton)
-    const mcpClientMod = require("./mcp-client");
+    const mcpClientMod = require("./mcp-client.js");
     mcpConfigBackup = mcpClientMod.mcpConfig;
     mcpClientMod.mcpConfig = {
       mcpServers: {
@@ -27,12 +27,12 @@ describe("aggregateMcpTools", () => {
   });
   afterEach(() => {
     // Restore original config
-    require("./mcp-client").mcpConfig = mcpConfigBackup;
+    require("./mcp-client.js").mcpConfig = mcpConfigBackup;
     vi.clearAllMocks();
   });
 
   it("aggregates tools from all servers", async () => {
-    const mcpClientMod = require("./mcp-client");
+    const mcpClientMod = require("./mcp-client.js");
     mcpClientMod.mcpClient.listTools
       .mockResolvedValueOnce([{ name: "toolA1" }, { name: "toolA2" }])
       .mockResolvedValueOnce([{ name: "toolB1" }]);
@@ -45,7 +45,7 @@ describe("aggregateMcpTools", () => {
   });
 
   it("handles error from one server but continues", async () => {
-    const mcpClientMod = require("./mcp-client");
+    const mcpClientMod = require("./mcp-client.js");
     mcpClientMod.mcpClient.listTools
       .mockRejectedValueOnce(new Error("failA"))
       .mockResolvedValueOnce([{ name: "toolB1" }]);
@@ -56,7 +56,7 @@ describe("aggregateMcpTools", () => {
   });
 
   it("throws if no config loaded", async () => {
-    const mcpClientMod = require("./mcp-client");
+    const mcpClientMod = require("./mcp-client.js");
     mcpClientMod.mcpConfig = undefined;
     await expect(aggregateMcpTools()).rejects.toThrow(/No MCP config/);
   });
