@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "server-everything": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "env": {},
+      "stdio": true
+    }
+  }
+}

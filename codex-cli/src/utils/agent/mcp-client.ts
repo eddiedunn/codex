@@ -1,7 +1,8 @@
+console.log('[MCP][DIAG] mcp-client.ts top-level loaded');
+
 // @ts-ignore MCP SDK package has no types and is not ESM-compatible with Vitest
 import * as path from 'path';
 import * as os from 'os';
-import { loadMcpConfig } from './load-mcp-config.js';
 import { spawn } from 'child_process';
 import type { McpServersConfig } from './mcp-config.js';
 import { aggregateMcpToolsGeneric } from "./aggregate-mcp-tools.js";
@@ -144,15 +145,32 @@ export async function connectWithAutoStart(client: any, serverName: string, url:
  * @param opts Optional overrides: { stdioServerName?: string }
  */
 export async function createMcpClient(opts: { stdioServerName?: string } = {}) {
-  // Determine transport type per-server
+  // Always load config at call time to respect test mocks
+  let mcpConfigLocal: McpServersConfig | undefined;
+  try {
+    // Use dynamic require to avoid module cache issues with mocks
+    mcpConfigLocal = (await import('./load-mcp-config.js')).loadMcpConfig(discoverMcpConfigPath());
+  } catch (err) {
+    try {
+      mcpConfigLocal = (await import('./load-mcp-config.js')).loadMcpConfig(path.resolve(process.cwd(), 'claude_desktop_config.json'));
+    } catch (e) {
+      mcpConfigLocal = undefined;
+      if (process.env["CLI_DEBUG"] || process.env["NODE_ENV"] === "development") {
+        console.warn('[MCP] No valid MCP config found (dynamic):', err, e);
+      }
+    }
+  }
+  // Diagnostic logging
+  console.log('[MCP][DEBUG][createMcpClient] mcpConfigLocal:', JSON.stringify(mcpConfigLocal, null, 2));
+
   let transportType: 'stdio' | 'http' | 'sse' = 'http';
   let selectedServer: any = undefined;
   if (opts.stdioServerName) {
-    selectedServer = mcpConfig?.mcpServers[opts.stdioServerName];
+    selectedServer = mcpConfigLocal?.mcpServers[opts.stdioServerName];
     transportType = 'stdio';
   } else {
     // Prefer explicit stdio servers, else HTTP/SSE
-    for (const [name, entry] of Object.entries(mcpConfig?.mcpServers || {})) {
+    for (const [name, entry] of Object.entries(mcpConfigLocal?.mcpServers || {})) {
       if (entry.command && entry.command === 'npx' && entry.args?.includes('@modelcontextprotocol/server-brave-search')) {
         selectedServer = entry;
         transportType = 'stdio';
@@ -165,7 +183,6 @@ export async function createMcpClient(opts: { stdioServerName?: string } = {}) {
     }
   }
   if (transportType === 'stdio' && selectedServer) {
-    // Use stdio transport (Brave, etc) with correct SDK pattern
     const { command, args, env } = selectedServer;
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
     const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js');
@@ -182,7 +199,6 @@ export async function createMcpClient(opts: { stdioServerName?: string } = {}) {
     await client.connect(transport);
     return client;
   } else if (selectedServer && selectedServer.url) {
-    // Use HTTP or SSE
     console.log('[MCP][DEBUG] Creating MCP Client with HTTP/SSE url:', selectedServer.url, 'transport:', transportType);
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
     return new Client(selectedServer.url, { transport: transportType });
@@ -194,27 +210,21 @@ export async function createMcpClient(opts: { stdioServerName?: string } = {}) {
   return new Client(url, { transport: 'http' });
 }
 
-// FIX: Ensure mcpClient is a resolved client, not a Promise
-let mcpClientInstance: any = undefined;
-export const mcpClientPromise = createMcpClient();
-export async function getMcpClient() {
-  if (!mcpClientInstance) {
-    mcpClientInstance = await mcpClientPromise;
-    console.debug('[DEBUG][MCP] mcpClient resolved:', mcpClientInstance);
-  }
-  return mcpClientInstance;
+// Factory function for MCP client, always creates after mocks are set
+export async function getMcpClientInstance() {
+  return await createMcpClient();
 }
 
-// For legacy compatibility, export mcpClient as a getter function
-export const mcpClient = getMcpClient;
+// Legacy/async getters remain for backward compatibility
+export function getMcpClient() { return getMcpClientInstance(); }
 
 export async function listMcpTools() {
-  const client = await getMcpClient();
+  const client = await getMcpClientInstance();
   return await client.listTools();
 }
 
 export async function invokeMcpTool(toolName: string, params: Record<string, any>) {
-  const client = await getMcpClient();
+  const client = await getMcpClientInstance();
   return await client.invokeTool(toolName, params);
 }
 
@@ -232,7 +242,7 @@ export async function aggregateMcpTools(): Promise<Array<{ server: string; tool:
   }
   console.log(`[DEBUG][MCP] MCP config loaded: ${JSON.stringify(mcpConfig, null, 2)}`);
   try {
-    const client = await getMcpClient();
+    const client = await getMcpClientInstance();
     console.log(`[DEBUG][MCP] typeof mcpClient: ${typeof client}, mcpClient:`, client);
     if (!client) {
       console.error('[DEBUG][MCP] mcpClient is undefined or null!');

@@ -62,11 +62,29 @@ serverProc.on('error', (err) => {
   if (typeof client.listTools === 'function') {
     try {
       const tools = await client.listTools();
-      console.log('[E2E] Tools:', tools);
+      console.log('[E2E] Tools:', JSON.stringify(tools, null, 2));
       const echoTool = tools.find((t) => t.name === 'echo');
       if (echoTool) {
-        const result = await client.callTool('echo', { text: 'hello stdio e2e' });
-        console.log('[E2E] Echo tool result:', result);
+        const payload = { text: 'hello stdio e2e' };
+        console.log('[E2E] Invoking tool:', 'echo');
+        console.log('[E2E] Payload:', JSON.stringify(payload));
+        const start = Date.now();
+        try {
+          const result = await client.callTool('echo', payload);
+          const duration = Date.now() - start;
+          console.log('[E2E] Echo tool result:', result);
+          console.log(`[E2E] callTool duration: ${duration}ms`);
+        } catch (err) {
+          const duration = Date.now() - start;
+          console.error('[E2E] MCP client error:', err);
+          if (err && err.stack) {
+            console.error('[E2E] Error stack:', err.stack);
+          }
+          console.error(`[E2E] callTool duration (error): ${duration}ms`);
+          if (err && err.response) {
+            console.error('[E2E] Error response:', JSON.stringify(err.response, null, 2));
+          }
+        }
       } else {
         console.log('[E2E] Echo tool not found');
       }

@@ -28,6 +28,9 @@ importers:
       fast-npm-meta:
         specifier: ^0.4.2
         version: 0.4.2
+      lookpath:
+        specifier: ^1.2.3
+        version: 1.2.3
       package-manager-detector:
         specifier: ^1.2.0
         version: 1.2.0
@@ -169,7 +172,7 @@ importers:
         specifier: ^8.0.1
         version: 8.0.1
       esbuild:
-        specifier: ^0.25.2
+        specifier: ^0.25.3
         version: 0.25.3
       eslint-plugin-import:
         specifier: ^2.31.0

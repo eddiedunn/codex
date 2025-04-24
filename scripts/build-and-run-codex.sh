@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build the codex CLI and run it with DEBUG=1
+# Build the codex CLI and run tests
 
 set -e
 
@@ -10,5 +10,6 @@ set -e
 echo "[build-and-run-codex] Running: npm run build"
 npm run build
 
-# Run the CLI with DEBUG=1 and pass all arguments
-DEBUG=1 npx codex "$@"
+# Test step
+echo "[build-and-run-codex] Running: pnpm test"
+pnpm test

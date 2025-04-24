@@ -7,12 +7,11 @@ import {
   ADD_FILE_PREFIX,
   DELETE_FILE_PREFIX,
   END_OF_FILE_PREFIX,
-  MOVE_FILE_TO_PREFIX,
   PATCH_SUFFIX,
   UPDATE_FILE_PREFIX,
   HUNK_ADD_LINE_PREFIX,
   PATCH_PREFIX,
-} from "src/parse-apply-patch";
+} from "./parse-apply-patch";
 
 // -----------------------------------------------------------------------------
 // Types & Models
@@ -146,13 +145,11 @@ class Parser {
         if (this.patch.actions[path]) {
           throw new DiffError(`Update File Error: Duplicate Path: ${path}`);
         }
-        const moveTo = this.read_str(MOVE_FILE_TO_PREFIX);
         if (!(path in this.current_files)) {
           throw new DiffError(`Update File Error: Missing File: ${path}`);
         }
         const text = this.current_files[path];
         const action = this.parse_update_file(text ?? "");
-        action.move_path = moveTo || undefined;
         this.patch.actions[path] = action;
         continue;
       }
@@ -538,7 +535,6 @@ export function patch_to_commit(
         type: ActionType.UPDATE,
         old_content: orig[pathKey],
         new_content: newContent,
-        move_path: action.move_path ?? undefined,
       };
     }
   }
@@ -577,12 +573,7 @@ export function apply_commit(
     } else if (change.type === ActionType.ADD) {
       writeFn(p, change.new_content ?? "");
     } else if (change.type === ActionType.UPDATE) {
-      if (change.move_path) {
-        writeFn(change.move_path, change.new_content ?? "");
-        removeFn(p);
-      } else {
-        writeFn(p, change.new_content ?? "");
-      }
+      writeFn(p, change.new_content ?? "");
     }
   }
 }

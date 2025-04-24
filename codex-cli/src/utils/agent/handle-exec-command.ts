@@ -9,7 +9,7 @@ import { ReviewDecision } from "./review.js";
 import { FullAutoErrorMode } from "../auto-approval-mode.js";
 import { SandboxType } from "./sandbox/interface.js";
 import { canAutoApprove } from "../../approvals.js";
-import { formatCommandForDisplay } from "../../format-command.js";
+import { formatCommandForDisplay } from "../format-command.js";
 import { isLoggingEnabled, log } from "../logger/log.js";
 import { access } from "fs/promises";
 

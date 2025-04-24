@@ -6,12 +6,12 @@ import { process_patch } from "./apply-patch.js";
 import { SandboxType } from "./sandbox/interface.js";
 import { execWithSeatbelt } from "./sandbox/macos-seatbelt.js";
 import { exec as rawExec } from "./sandbox/raw-exec.js";
-import { formatCommandForDisplay } from "../../format-command.js";
+import { formatCommandForDisplay } from "../format-command.js";
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { parse } from "shell-quote";
-import { resolvePathAgainstWorkdir } from "src/approvals.js";
+import { resolvePathAgainstWorkdir } from "../../approvals.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000; // 10 seconds
 

@@ -1,6 +1,7 @@
 # Progress
 
 ## What Works
+
 - Core agent loop and tool invocation (shell, exec)
 - Memory bank documentation system initialized
 - MCP SDK (@modelcontextprotocol/sdk) installed
@@ -18,6 +19,7 @@
 - Strict separation between process management and SDK logic is enforced throughout the codebase.
 
 ## What's Left
+
 - MCP tool invocation logic
 - Tests and documentation for MCP integration
 - MCP client test integration and mocking
@@ -31,10 +33,12 @@
 ## MCP Client Integration: Progress Update (April 19, 2025)
 
 ### What’s Blocked
+
 - Main project tests for MCP client integration still fail to trigger mocks; the real implementation is always called.
 - Root cause appears to be a hidden import, test runner config, or module cache issue unique to the main project.
 
 ### Next Steps
+
 - Audit the main project for transitive or hidden imports of the MCP client before test mocks are registered.
 - Consider dependency injection or runtime patching if import order cannot be fixed.
 - Optionally, upgrade Vitest for improved ESM/CJS mocking support.
@@ -42,17 +46,20 @@
 ## MCP Tool Discovery/Listing (April 19, 2025)
 
 ### What Works
+
 - Added CLI command: `codex mcp-tools`.
 - The command lists all available MCP tools (name and description) from the MCP server using the SDK's `listTools()` method.
 - Handles empty/no-tool cases and errors gracefully.
 
 ### What's Left
+
 - Optionally improve output formatting (e.g., show schemas, arguments).
 - Document usage in README/product docs.
 
 ## MCP Tool Discovery/Listing Tests (April 19, 2025)
 
 #### What Works
+
 - Added tests for the `codex mcp-tools` CLI command:
   - Verifies correct output for available tools (mocked response)
   - Handles empty tool list
@@ -60,20 +67,44 @@
 - Uses Jest and execa to run the CLI and mock the MCP client
 
 #### What's Left
+
 - Integrate with CI if not already
 - Expand tests for edge cases (e.g., malformed tool data)
 
+## MCP Stdio E2E Debugging (April 24, 2025)
+
+### What Works
+
+- MCP client is now correctly built as CJS (`dist/utils/agent/mcp-client.cjs`) and imported in manual E2E scripts.
+- E2E script launches the MCP server with stdio transport, creates a client, and lists tools successfully.
+- Diagnostic logging confirms stdio transport is used and available tools are listed.
+- The E2E script finds the `echo` tool and attempts to invoke it.
+
+### What's Blocked
+
+- Tool invocation (`callTool('echo', ...)`) times out with `McpError: MCP error -32001: Request timed out`.
+- Server logs show warnings, errors, and debug messages, but no direct cause for tool call failure.
+
+### Next Steps
+
+- Add more diagnostic logging around tool invocation in both client and server.
+- Try invoking other tools (e.g., `add`) with minimal payloads to isolate if the issue is tool-specific.
+- Audit payloads for protocol/schema mismatches.
+- Inspect server output for stack traces or errors during tool call handling.
+
 ## Known Issues
+
 - MCP SDK is CJS and not ESM-compatible, but this does not block mocking in minimal reproductions.
 - User frustration is high due to repeated attempts and persistent blockers.
 - None for auto-launch; all test and runtime blockers resolved.
 - Maintain vigilance for SDK import creep into process management code.
 
 ## Current Status
+
 - Preparing to add MCP integration on a new feature branch
 - All auto-launch logic and tests pass (see test suite for `auto-launch-mcp.ts`).
 - Memory bank and documentation updated with new patterns and decisions.
 
 ---
 
-*Last updated: 2025-04-19 18:15 EDT*
+_Last updated: 2025-04-24 18:15 EDT_

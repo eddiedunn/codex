@@ -35,7 +35,7 @@ describe("AgentLoop MCP function call integration", () => {
       onLastResponseId: () => {},
       invokeMcpTool: mockInvokeMcpTool,
     });
-    await agent.initMcpTools();
+    // Canonical: No initMcpTools needed. MCP tool registry is injected via invokeMcpTool.
 
     const mockFunctionCall = {
       type: "function_call",
@@ -67,7 +67,7 @@ describe("AgentLoop MCP function call integration", () => {
       onLastResponseId: () => {},
       invokeMcpTool: mockInvokeMcpTool,
     });
-    await agent.initMcpTools();
+    // Canonical: No initMcpTools needed. MCP tool registry is injected via invokeMcpTool.
 
     const mockFunctionCall = {
       type: "function_call",

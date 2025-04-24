@@ -45,21 +45,22 @@ serverProc.on('error', (err) => {
 // Simulate MCP client using the same logic as createMcpClient (imported from dist)
 (async () => {
   // Import the compiled MCP client (adjust path as needed)
-  const mcpClientPath = path.resolve(__dirname, 'codex-cli/dist/src/utils/agent/mcp-client.js');
+  const mcpClientPath = path.resolve(__dirname, 'codex-cli/dist/utils/agent/mcp-client.cjs');
   const { createMcpClient } = require(mcpClientPath);
 
   // Wait a bit for the server to be ready
   await new Promise((r) => setTimeout(r, 2000));
 
-  const client = createMcpClient({ stdioServerName: undefined });
-  console.log('[E2E] Created MCP client:', client._options);
+  // Create the MCP client using stdio transport (await the promise)
+  const client = await createMcpClient({ stdioServerName: 'server-everything' });
+  console.log('[E2E] Created MCP client:', client ? Object.keys(client) : client);
 
   // If actual stdio integration is supported, try to list tools and call echo
-  if (typeof client.listTools === 'function') {
+  if (client && typeof client.listTools === 'function') {
     try {
       const tools = await client.listTools();
       console.log('[E2E] Tools:', tools);
-      const echoTool = tools.find((t) => t.name === 'echo');
+      const echoTool = tools.tools.find((t) => t.name === 'echo');
       if (echoTool) {
         const result = await client.callTool('echo', { text: 'hello stdio e2e' });
         console.log('[E2E] Echo tool result:', result);

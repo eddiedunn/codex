@@ -84,3 +84,18 @@ esbuild
     external: ["@modelcontextprotocol/sdk"],
   })
   .catch(() => process.exit(1));
+
+// Add mcp-client.ts as a build entrypoint for E2E/manual integration
+esbuild.build({
+  entryPoints: ["src/utils/agent/mcp-client.ts"],
+  bundle: true,
+  format: "cjs",
+  platform: "node",
+  tsconfig: "tsconfig.json",
+  outfile: `${OUT_DIR}/utils/agent/mcp-client.cjs`,
+  minify: !isDevBuild,
+  sourcemap: isDevBuild ? "inline" : true,
+  plugins,
+  external: ["@modelcontextprotocol/sdk"],
+})
+.catch(() => process.exit(1));

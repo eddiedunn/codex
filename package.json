@@ -31,6 +31,7 @@
     "boxen": "^8.0.1",
     "eventsource": "^3.0.6",
     "fast-npm-meta": "^0.4.2",
+    "lookpath": "^1.2.3",
     "package-manager-detector": "^1.2.0"
   },
   "resolutions": {

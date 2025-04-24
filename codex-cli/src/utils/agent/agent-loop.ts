@@ -67,6 +67,11 @@ type AgentLoopParams = {
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
   onLastResponseId: (lastResponseId: string) => void;
+  /**
+   * [MCP] Optional dependency injection for MCP tool invocation (testability).
+   * If provided, this function will be called for any MCP tool call (tool name starts with "mcp.").
+   */
+  invokeMcpTool?: (toolName: string, params: Record<string, any>) => Promise<any>;
 };
 
 const shellTool: FunctionTool = {
@@ -117,6 +122,11 @@ export class AgentLoop {
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
   private onLastResponseId: (lastResponseId: string) => void;
+  /**
+   * [MCP] Optional dependency injection for MCP tool invocation (testability).
+   * If provided, this function will be called for any MCP tool call (tool name starts with "mcp.").
+   */
+  private readonly invokeMcpTool?: (toolName: string, params: Record<string, any>) => Promise<any>;
 
   /**
    * A reference to the currently active stream returned from the OpenAI
@@ -261,6 +271,7 @@ export class AgentLoop {
     getCommandConfirmation,
     onLastResponseId,
     additionalWritableRoots,
+    invokeMcpTool,
   }: AgentLoopParams & { config?: AppConfig }) {
     this.model = model;
     this.provider = provider;
@@ -318,6 +329,8 @@ export class AgentLoop {
       () => this.execAbortController?.abort(),
       { once: true },
     );
+    // [MCP] Store injected MCP tool invoker if provided
+    this.invokeMcpTool = invokeMcpTool;
   }
 
   private async handleFunctionCall(
@@ -418,6 +431,11 @@ export class AgentLoop {
 
       if (additionalItemsFromExec) {
         additionalItems.push(...additionalItemsFromExec);
+      }
+    } else if (name && name.startsWith("mcp.")) {
+      if (this.invokeMcpTool) {
+        const output = await this.invokeMcpTool(name, args);
+        outputItem.output = JSON.stringify(output);
       }
     }
 
