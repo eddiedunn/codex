@@ -1,4 +1,4 @@
-import { loadConfig, PROJECT_DOC_MAX_BYTES } from "../src/utils/config";
+import { loadConfig, PROJECT_DOC_MAX_BYTES } from "../src/utils/config.js";
 import { mkdirSync, rmSync, writeFileSync, mkdtempSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";

@@ -112,6 +112,8 @@ import { AgentLoop } from "../src/utils/agent/agent-loop.js";
 
 describe("function_call_output includes original call ID", () => {
   it("copies id → call_id so the API accepts the tool result", async () => {
+    const { _test } = (await import("openai")) as any;
+
     const agent = new AgentLoop({
       model: "any",
       instructions: "",
@@ -136,7 +138,6 @@ describe("function_call_output includes original call ID", () => {
     // Give the agent a tick to finish the second round‑trip.
     await new Promise((r) => setTimeout(r, 20));
 
-    const { _test } = (await import("openai")) as any;
     const body = _test.getCapturedSecondBody();
     expect(body).toBeTruthy();
 

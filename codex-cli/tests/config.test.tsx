@@ -1,4 +1,5 @@
 import type * as fsType from "fs";
+
 import { loadConfig, saveConfig } from "../src/utils/config.js"; // parent import first
 import { AutoApprovalMode } from "../src/utils/auto-approval-mode.js";
 import { tmpdir } from "os";
