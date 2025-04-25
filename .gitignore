@@ -73,6 +73,9 @@ Icon?
 .yarn/
 yarn.lock
 
+# Ignore the MCP servers repo (nested repo)
+servers/
+
 # release
 package.json-e
 session.ts-e
