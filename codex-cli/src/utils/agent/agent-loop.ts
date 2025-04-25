@@ -151,6 +151,23 @@ export class AgentLoop {
   /** Master abort controller – fires when terminate() is invoked. */
   private readonly hardAbort = new AbortController();
 
+  // --- PAGINATION STATE ---
+  private paginationState: {
+    lastQueryType?: 'resources' | 'templates',
+    lastQueryArgs?: Record<string, any>,
+    nextPageToken?: string,
+    prevPageToken?: string,
+    pageSize: number,
+  } = { pageSize: 10 };
+
+  // --- NATURAL LANGUAGE PAGINATION DETECTION ---
+  private isPaginationCommand(input: string): 'next' | 'prev' | null {
+    const normalized = input.trim().toLowerCase();
+    if (["next", "show more", "more", "forward"].includes(normalized)) return 'next';
+    if (["previous", "prev", "back", "show less", "earlier"].includes(normalized)) return 'prev';
+    return null;
+  }
+
   /**
    * Abort the ongoing request/stream, if any. This allows callers (typically
    * the UI layer) to interrupt the current agent step so the user can issue
@@ -1357,6 +1374,79 @@ export class AgentLoop {
       // Re‑throw all other errors so upstream handlers can decide what to do.
       throw err;
     }
+
+    // Detect if the input is a pagination command
+    const userInputText = input.find(i => i.type === 'message' && (i as any).role === 'user')?.content?.[0]?.text || '';
+    const paginationCmd = this.isPaginationCommand(userInputText);
+    if (paginationCmd && this.paginationState.lastQueryType) {
+      // Re-issue last query with next/prev token
+      const { lastQueryType, lastQueryArgs, nextPageToken, prevPageToken, pageSize } = this.paginationState;
+      const token = paginationCmd === 'next' ? nextPageToken : prevPageToken;
+      if (!token) {
+        this.onItem({
+          id: `pagination-end-${Date.now()}`,
+          type: 'message',
+          role: 'system',
+          content: [{ type: 'input_text', text: paginationCmd === 'next' ? 'No more results.' : 'Already at the beginning.' }],
+        });
+        return;
+      }
+      // Call the appropriate MCP client method
+      let pageResult;
+      if (lastQueryType === 'resources') {
+        pageResult = await this.config.mcpClient.listResources({ ...lastQueryArgs, pageToken: token, pageSize });
+      } else {
+        pageResult = await this.config.mcpClient.listResourceTemplates({ ...lastQueryArgs, pageToken: token, pageSize });
+      }
+      // Show results
+      this.onItem({
+        id: `pagination-results-${Date.now()}`,
+        type: 'message',
+        role: 'system',
+        content: [{ type: 'input_text', text: JSON.stringify(pageResult.results, null, 2) }],
+      });
+      // Update pagination state
+      this.paginationState = {
+        ...this.paginationState,
+        nextPageToken: pageResult.nextPageToken,
+        prevPageToken: pageResult.prevPageToken,
+      };
+      // Prompt for more/previous if available
+      if (pageResult.nextPageToken || pageResult.prevPageToken) {
+        let prompt = 'More results available.';
+        if (pageResult.nextPageToken && pageResult.prevPageToken) {
+          prompt += ' Type "next" for more, "previous" to go back.';
+        } else if (pageResult.nextPageToken) {
+          prompt += ' Type "next" for more.';
+        } else if (pageResult.prevPageToken) {
+          prompt += ' Type "previous" to go back.';
+        }
+        this.onItem({
+          id: `pagination-prompt-${Date.now()}`,
+          type: 'message',
+          role: 'system',
+          content: [{ type: 'input_text', text: prompt }],
+        });
+      }
+      return;
+    } else {
+      // Reset pagination state on any new query
+      this.paginationState = { pageSize: 10 };
+    }
+
+    // When listing resources/templates:
+    // Example (pseudo):
+    // if (user requested resources/templates) {
+    //   const pageResult = await mcpClient.listResources({ pageSize: this.paginationState.pageSize });
+    //   this.paginationState = {
+    //     lastQueryType: 'resources',
+    //     lastQueryArgs: {/* whatever args used */},
+    //     nextPageToken: pageResult.nextPageToken,
+    //     prevPageToken: pageResult.prevPageToken,
+    //     pageSize: this.paginationState.pageSize,
+    //   };
+    //   // ... output results and prompt as above ...
+    // }
   }
 
   // we need until we can depend on streaming events

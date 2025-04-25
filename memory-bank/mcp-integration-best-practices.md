@@ -47,24 +47,67 @@ class MCPConnectionManager {
 
 ---
 
-## 2. Error Handling & Logging
+## 2. Error Handling & Negative Test Patterns
 
-- **Pre-Spawn Existence Check:**
-  - Before spawning a stdio/Docker/NPX server, check if the binary/command exists (with `fs.existsSync` or `which`).
-  - If the command is missing, log a clear, actionable error and skip that server.
-- **Graceful Degradation:**
-  - Never let one broken server block the rest; always degrade gracefully.
-- **Per-Server Logging:**
-  - Log connection attempts, failures, and tool listing errors per server.
-  - Summarize skipped/broken servers at the end of aggregation.
-- **Timeouts:**
-  - Use timeouts for server startup and tool listing to avoid hangs.
-- **Cleanup:**
-  - On error, ensure resources (connections, processes) are cleaned up.
+### General Principles
+
+- Always test both positive and negative/edge cases for MCP tool calls.
+- Use Vitest's `.rejects.toThrow` pattern for error assertions, as MinimalMcpClient throws on MCP error responses.
+- Assert on error message substrings (e.g., `/not found|argument|method/i`) to allow for evolving error messages.
+
+### Example Negative Test Cases
+
+```typescript
+it("should return error for unknown tool name", async () => {
+  await expect(
+    client.request("tools/call", {
+      name: "nonexistent_tool",
+      arguments: { foo: "bar" },
+    }),
+  ).rejects.toThrow(/not found|unknown/i);
+});
+
+it("should return error for malformed arguments", async () => {
+  await expect(
+    client.request("tools/call", {
+      name: "echo",
+      arguments: { notMessage: 123 },
+    }),
+  ).rejects.toThrow(/invalid|argument/i);
+});
+
+it("should return error for invalid method", async () => {
+  await expect(
+    client.request("invalid/method", {
+      name: "echo",
+      arguments: { message: "test" },
+    }),
+  ).rejects.toThrow(/method|not supported|unknown/i);
+});
+```
+
+### Abrupt Disconnects & Stdio Limitations
+
+- Simulating abrupt server disconnects in stdio integration tests is unreliable due to OS buffering and process timing.
+- For deterministic disconnect/error simulation, use dependency injection or a mock transport in unit tests.
+- Document this limitation in integration test code and focus integration coverage on protocol-level errors.
+
+### Dependency Injection for Error Simulation
+
+- Use the optional `invokeMcpTool` DI pattern in `AgentLoop` for deterministic error and edge case testing (see `mcp-client.ts` and memory bank for details).
 
 ---
 
-## 3. Security & Validation
+## 3. Production Hardening & Logging
+
+- Ensure all MCP tool errors are logged server-side and surfaced to the client in a spec-compliant way.
+- Add logging for protocol violations, argument errors, and unexpected disconnects.
+- Implement graceful shutdown and resource cleanup in both client and server code.
+- Add TODOs/comments for any hardening work that is not yet implemented.
+
+---
+
+## 4. Security & Validation
 
 - **Principle of Least Privilege:**
   - Only request/enable the capabilities you need.
@@ -77,7 +120,7 @@ class MCPConnectionManager {
 
 ---
 
-## 4. Configuration Flexibility
+## 5. Configuration Flexibility
 
 - **Support all launch types:**
   - HTTP URL, stdio command, Docker, NPX.
@@ -105,7 +148,7 @@ class MCPConnectionManager {
 
 ---
 
-## 5. Brave MCP Server Peculiarities
+## 6. Brave MCP Server Peculiarities
 
 - **Do NOT use npm install:** The published npm package is often incomplete; prefer NPX or Docker.
 - **API Key Required:** Always set `BRAVE_API_KEY` in the environment.
@@ -115,7 +158,7 @@ class MCPConnectionManager {
 
 ---
 
-## 6. Implementation Snippet: Robust MCP Tool Aggregation
+## 7. Implementation Snippet: Robust MCP Tool Aggregation
 
 ```typescript
 import * as fs from "fs";
@@ -165,7 +208,7 @@ async function aggregateMcpTools(mcpServers) {
 
 ---
 
-## 7. MCP SDK Stdio Integration Best Practice (2025-04)
+## 8. MCP SDK Stdio Integration Best Practice (2025-04)
 
 **Always use the official SDK pattern for stdio-based MCP servers:**
 
@@ -201,7 +244,7 @@ await client.connect(transport);
 
 ---
 
-## 8. MCP Integration Test & Dependency Injection Pattern
+## 9. MCP Integration Test & Dependency Injection Pattern
 
 _Last updated: 2025-04-24_
 
@@ -235,7 +278,7 @@ _Last updated: 2025-04-24_
 
 ---
 
-## 9. MCP Handler Registration & Protocol Compliance
+## 10. MCP Handler Registration & Protocol Compliance
 
 - **Always register handlers using the Zod schema object and the exact MCP method string (e.g., 'tools/call').**
 - **Client requests must match the MCP spec:**
@@ -263,7 +306,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 ---
 
-## 10. Testing & DI Patterns
+## 11. Testing & DI Patterns
 
 - **Dependency Injection:**
   - Allow injection of MCP tool invocation logic for deterministic and robust tests.
@@ -281,7 +324,7 @@ await expect(client.request("foo")).rejects.toThrow(
 
 ---
 
-## 11. Integration Checkpoint (April 2025)
+## 12. Integration Checkpoint (April 2025)
 
 - MCP integration is robust and spec-compliant as of 2025-04-24.
 - All MCP-related tests pass; only unrelated CLI/terminal tests are ignored.
@@ -290,6 +333,30 @@ await expect(client.request("foo")).rejects.toThrow(
 ---
 
 _Last updated: 2025-04-24_
+
+## 13. MCP Resource Protocol Integration & Test Patterns (April 2025)
+
+- Client methods implemented for `resources/list`, `resources/read`, `resources/templates`, `resources/subscribe`, and `resources/unsubscribe`, using field names per MCP spec (`uri`).
+- Integration tests connect to a real MCP reference server (`server-everything`) and validate interoperability.
+- Unit tests use dependency injection/mocking for deterministic, fast feedback.
+- All tests are passing, confirming spec compliance and client-server compatibility.
+- Error handling covers protocol errors and response shape mismatches.
+
+**Best Practices:**
+
+- Always match field names to the MCP protocol (e.g., `uri` for resource references).
+- In integration tests, spin up the reference server as a subprocess for true end-to-end validation.
+- Use dependency injection or mocking in unit tests for reliability and speed.
+- Assert on both structure (Array.isArray, property existence) and content (e.g., `uri`, `name`).
+- Document protocol quirks and interoperability notes in the memory bank for future contributors.
+
+**Next Steps:**
+
+- Expand resource protocol coverage (templates, subscriptions, pagination, etc.).
+- Integrate resource methods into CLI/agent workflows.
+- Use this pattern for future MCP protocol features (prompts, completions, etc.).
+
+_Last updated: 2025-04-25_
 
 ## References
 

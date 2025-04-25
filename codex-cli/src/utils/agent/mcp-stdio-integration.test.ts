@@ -49,4 +49,55 @@ describe('MCP stdio integration (reference server)', () => {
     expect(Array.isArray(echoResult.content)).toBe(true);
     expect(echoResult.content[0]?.text ?? '').toMatch(/hello MCP/i);
   });
+
+  it('should return error for unknown tool name', async () => {
+    const client = new MinimalMcpClient({
+      transport: 'stdio',
+      stdioPath: MCP_SERVER_COMMAND,
+      stdioArgs: MCP_SERVER_ARGS,
+    });
+    await client.connect();
+    await expect(
+      client.request('tools/call', {
+        name: 'nonexistent_tool',
+        arguments: { foo: 'bar' }
+      })
+    ).rejects.toThrow(/not found|unknown/i);
+  });
+
+  it('should return error for malformed arguments', async () => {
+    const client = new MinimalMcpClient({
+      transport: 'stdio',
+      stdioPath: MCP_SERVER_COMMAND,
+      stdioArgs: MCP_SERVER_ARGS,
+    });
+    await client.connect();
+    await expect(
+      client.request('tools/call', {
+        name: 'echo',
+        arguments: { notMessage: 123 }
+      })
+    ).rejects.toThrow(/invalid|argument/i);
+  });
+
+  it('should return error for invalid method', async () => {
+    const client = new MinimalMcpClient({
+      transport: 'stdio',
+      stdioPath: MCP_SERVER_COMMAND,
+      stdioArgs: MCP_SERVER_ARGS,
+    });
+    await client.connect();
+    await expect(
+      client.request('invalid/method', {
+        name: 'echo',
+        arguments: { message: 'test' }
+      })
+    ).rejects.toThrow(/method|not supported|unknown/i);
+  });
+
+  // NOTE: This test is unreliable in real stdio integration due to OS/process buffering.
+  // See memory bank and best practices doc for rationale. Use unit tests with DI/mocks for this scenario.
+  it.skip('should handle abrupt server disconnect (unreliable in integration)', async () => {
+    // This test is skipped: see above.
+  });
 });

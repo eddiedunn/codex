@@ -92,6 +92,29 @@
 - Audit payloads for protocol/schema mismatches.
 - Inspect server output for stack traces or errors during tool call handling.
 
+## MCP Resource Protocol Integration (April 2025)
+
+- Implemented MCP client methods for `resources/list`, `resources/read`, `resources/templates`, `resources/subscribe`, and `resources/unsubscribe`.
+- Ensured parameter names match MCP spec (e.g., `uri` instead of `id` or `resourceId`).
+- Added robust error handling for response shapes and protocol errors.
+- Integration tests connect to a real MCP reference server (`server-everything`) and validate interoperability.
+- Unit tests use dependency injection/mocking for deterministic, fast feedback.
+- All tests are passing, confirming spec compliance and client-server compatibility.
+
+**Best Practices:**
+
+- Always match field names to the MCP protocol (e.g., `uri` for resource references).
+- In integration tests, spin up the reference server as a subprocess for true end-to-end validation.
+- Use dependency injection or mocking in unit tests for reliability and speed.
+- Assert on both structure (Array.isArray, property existence) and content (e.g., `uri`, `name`).
+- Document protocol quirks and interoperability notes in the memory bank for future contributors.
+
+**Next Steps:**
+
+- Expand resource protocol coverage (templates, subscriptions, pagination, etc.).
+- Integrate resource methods into CLI/agent workflows.
+- Use this pattern for future MCP protocol features (prompts, completions, etc.).
+
 ## Known Issues
 
 - MCP SDK is CJS and not ESM-compatible, but this does not block mocking in minimal reproductions.
@@ -107,4 +130,4 @@
 
 ---
 
-_Last updated: 2025-04-24 18:15 EDT_
+_Last updated: 2025-04-25_

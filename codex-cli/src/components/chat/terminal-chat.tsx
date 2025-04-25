@@ -141,6 +141,7 @@ export default function TerminalChat({
   additionalWritableRoots,
   fullStdout,
 }: Props): React.ReactElement {
+  log("[DEBUG] TerminalChat rendered");
   const notify = config.notify;
   const [model, setModel] = useState<string>(config.model);
   const [provider, setProvider] = useState<string>(config.provider || "openai");
@@ -456,6 +457,24 @@ export default function TerminalChat({
     [items, model],
   );
 
+  const handleSubmitInput = (...args: any[]) => {
+    log("[DEBUG] handleSubmitInput called", args);
+    console.log("[DEBUG] handleSubmitInput called", args);
+    if (typeof config.mcpClient?.listResources === "function") {
+      log("[DEBUG] mcpClient.listResources is available");
+      console.log("[DEBUG] mcpClient.listResources is available");
+    } else {
+      log("[DEBUG] mcpClient.listResources is NOT available");
+      console.log("[DEBUG] mcpClient.listResources is NOT available");
+    }
+    if (agent) {
+      agent.run(args[0], lastResponseId || "");
+    } else {
+      console.log("[DEBUG] agent is undefined");
+    }
+    return {};
+  };
+
   return (
     <Box flexDirection="column">
       <Box flexDirection="column">
@@ -558,10 +577,7 @@ export default function TerminalChat({
                 },
               ]);
             }}
-            submitInput={(inputs) => {
-              agent.run(inputs, lastResponseId || "");
-              return {};
-            }}
+            submitInput={handleSubmitInput}
             items={items}
             thinkingSeconds={thinkingSeconds}
           />
