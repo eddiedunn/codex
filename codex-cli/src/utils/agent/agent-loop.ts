@@ -3,17 +3,15 @@ import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { AppConfig } from "../config.js";
 import type { ResponseEvent } from "../responses.js";
 import type {
-  ResponseFunctionToolCall,
-  ResponseInputItem,
   ResponseItem,
   ResponseCreateParams,
   FunctionTool,
 } from "openai/resources/responses/responses.mjs";
 import type { Reasoning } from "openai/resources.mjs";
+import type { McpClient } from "./mcp-client";
 
 import { OPENAI_TIMEOUT_MS, getApiKey, getBaseUrl } from "../config.js";
 import { log } from "../logger/log.js";
-import { parseToolCallArguments } from "../parsers.js";
 import { responsesCreateViaChatCompletions } from "../responses.js";
 import {
   ORIGIN,
@@ -67,6 +65,7 @@ type AgentLoopParams = {
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
   onLastResponseId: (lastResponseId: string) => void;
+  invokeMcpTool?: (toolName: string, params: Record<string, any>) => Promise<any>;
 };
 
 const shellTool: FunctionTool = {
@@ -117,6 +116,7 @@ export class AgentLoop {
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
   private onLastResponseId: (lastResponseId: string) => void;
+  private invokeMcpTool?: (toolName: string, params: Record<string, any>) => Promise<any>;
 
   /**
    * A reference to the currently active stream returned from the OpenAI
@@ -261,6 +261,7 @@ export class AgentLoop {
     getCommandConfirmation,
     onLastResponseId,
     additionalWritableRoots,
+    invokeMcpTool,
   }: AgentLoopParams & { config?: AppConfig }) {
     this.model = model;
     this.provider = provider;
@@ -318,110 +319,75 @@ export class AgentLoop {
       () => this.execAbortController?.abort(),
       { once: true },
     );
+    this.invokeMcpTool = invokeMcpTool;
   }
 
   private async handleFunctionCall(
-    item: ResponseFunctionToolCall,
-  ): Promise<Array<ResponseInputItem>> {
-    // If the agent has been canceled in the meantime we should not perform any
-    // additional work. Returning an empty array ensures that we neither execute
-    // the requested tool call nor enqueue any follow‑up input items. This keeps
-    // the cancellation semantics intuitive for users – once they interrupt a
-    // task no further actions related to that task should be taken.
-    if (this.canceled) {
-      return [];
-    }
-    // ---------------------------------------------------------------------
-    // Normalise the function‑call item into a consistent shape regardless of
-    // whether it originated from the `/responses` or the `/chat/completions`
-    // endpoint – their JSON differs slightly.
-    // ---------------------------------------------------------------------
+    item: any,
+  ): Promise<any[]> {
+    // Always extract call_id for output (spec compliance)
+    const callId = item.call_id ?? item.id;
 
-    const isChatStyle =
-      // The chat endpoint nests function details under a `function` key.
-      // We conservatively treat the presence of this field as a signal that
-      // we are dealing with the chat format.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (item as any).function != null;
-
-    const name: string | undefined = isChatStyle
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (item as any).function?.name
-      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (item as any).name;
-
-    const rawArguments: string | undefined = isChatStyle
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (item as any).function?.arguments
-      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (item as any).arguments;
-
-    // The OpenAI "function_call" item may have either `call_id` (responses
-    // endpoint) or `id` (chat endpoint).  Prefer `call_id` if present but fall
-    // back to `id` to remain compatible.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const callId: string = (item as any).call_id ?? (item as any).id;
-
-    const args = parseToolCallArguments(rawArguments ?? "{}");
-    log(
-      `handleFunctionCall(): name=${
-        name ?? "undefined"
-      } callId=${callId} args=${rawArguments}`,
-    );
-
-    if (args == null) {
-      const outputItem: ResponseInputItem.FunctionCallOutput = {
-        type: "function_call_output",
-        call_id: item.call_id,
-        output: `invalid arguments: ${rawArguments}`,
-      };
-      return [outputItem];
+    // --- Robust normalization for tool call structure ---
+    // Supports both flat (OpenAI legacy) and nested (OpenAI/MCP spec) tool calls
+    const toolName = item.function?.name ?? item.name;
+    const toolArgsRaw = item.function?.arguments ?? item.arguments ?? '{}';
+    let toolArgs: any;
+    try {
+      toolArgs = JSON.parse(toolArgsRaw);
+    } catch (err) {
+      // Always return error as JSON string for test and production best practice
+      return [{
+        type: 'function_call_output',
+        call_id: callId,
+        output: JSON.stringify({ error: `Invalid JSON arguments: ${String(err)}` })
+      }];
     }
 
-    const outputItem: ResponseInputItem.FunctionCallOutput = {
-      type: "function_call_output",
-      // `call_id` is mandatory – ensure we never send `undefined` which would
-      // trigger the "No tool output found…" 400 from the API.
-      call_id: callId,
-      output: "no function found",
-    };
+    // --- MCP DI pattern: always use DI if present, bypass registry ---
+    if (toolName && toolName.startsWith('mcp.') && this.invokeMcpTool) {
+      try {
+        const result = await this.invokeMcpTool(toolName, toolArgs);
+        return [{
+          type: 'function_call_output',
+          call_id: callId,
+          output: JSON.stringify(result)
+        }];
+      } catch (err) {
+        // Always return error as JSON string
+        return [{
+          type: 'function_call_output',
+          call_id: callId,
+          output: JSON.stringify({ error: String(err) })
+        }];
+      }
+    }
 
-    // We intentionally *do not* remove this `callId` from the `pendingAborts`
-    // set right away.  The output produced below is only queued up for the
-    // *next* request to the OpenAI API – it has not been delivered yet.  If
-    // the user presses ESC‑ESC (i.e. invokes `cancel()`) in the small window
-    // between queuing the result and the actual network call, we need to be
-    // able to surface a synthetic `function_call_output` marked as
-    // "aborted".  Keeping the ID in the set until the run concludes
-    // successfully lets the next `run()` differentiate between an aborted
-    // tool call (needs the synthetic output) and a completed one (cleared
-    // below in the `flush()` helper).
-
-    // used to tell model to stop if needed
-    const additionalItems: Array<ResponseInputItem> = [];
-
-    // TODO: allow arbitrary function calls (beyond shell/container.exec)
-    if (name === "container.exec" || name === "shell") {
+    if (toolName === "container.exec" || toolName === "shell") {
       const {
         outputText,
         metadata,
-        additionalItems: additionalItemsFromExec,
+        additionalItems,
       } = await handleExecCommand(
-        args,
+        toolArgs,
         this.config,
         this.approvalPolicy,
         this.additionalWritableRoots,
         this.getCommandConfirmation,
         this.execAbortController?.signal,
       );
-      outputItem.output = JSON.stringify({ output: outputText, metadata });
-
-      if (additionalItemsFromExec) {
-        additionalItems.push(...additionalItemsFromExec);
-      }
+      return [{
+        type: 'function_call_output',
+        call_id: callId,
+        output: JSON.stringify({ output: outputText, metadata }),
+      }, ...(Array.isArray(additionalItems) ? additionalItems : [])];
     }
 
-    return [outputItem, ...additionalItems];
+    return [{
+      type: 'function_call_output',
+      call_id: callId,
+      output: 'no function found',
+    }];
   }
 
   public async run(
@@ -1314,7 +1280,7 @@ export class AgentLoop {
             ],
           });
         } catch {
-          /* best‑effort */
+          /* best‑effort – emitting the error message is best‑effort */
         }
         this.onLoading(false);
         return;

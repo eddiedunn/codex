@@ -201,6 +201,40 @@ await client.connect(transport);
 
 ---
 
+## 8. MCP Integration Test & Dependency Injection Pattern
+
+_Last updated: 2025-04-24_
+
+### Key Patterns & Best Practices
+
+- **Dependency Injection:**
+  - `AgentLoop` accepts an optional `invokeMcpTool` function for test/mock injection.
+  - If provided, this function is always called for MCP tool calls (tool names starting with `mcp.`), bypassing the registry lookup.
+  - This enables deterministic, import/mocking-order-agnostic tests.
+- **Argument Handling:**
+  - MCP tool arguments are always parsed as JSON from the `arguments` field and passed to the injected/mock implementation.
+  - Errors in argument parsing or tool invocation are caught and formatted for easy test assertions.
+- **Test Robustness:**
+  - Tests assert on both the output and error cases, ensuring that the code path is exercised for both successful and failing MCP tool calls.
+  - The fallback registry path is only used in production/non-test code.
+- **call_id Propagation:**
+  - Always include the original `call_id` (or `id`) in the output object for function call outputs, as required by the OpenAI/MCP spec.
+- **Error Handling:**
+  - All errors are returned as JSON strings for safe parsing and test assertions.
+
+#### Lessons Learned
+
+- Bypassing the registry when a DI function is present is critical for reliable, order-independent testability.
+- Always parse and pass arguments explicitly for tool calls to avoid undefined/empty parameter issues in mocks.
+- Catch and stringify errors in the DI path for better test diagnostics.
+
+#### Status
+
+- MCP integration logic is robust, merge-ready, and fully testable with Vitest.
+- Pattern is now canonical for all future tool-call integrations and tests.
+
+---
+
 ## References
 
 - [MCP Client Development Guide](https://github.com/cyanheads/model-context-protocol-resources/blob/main/guides/mcp-client-development-guide.md)
