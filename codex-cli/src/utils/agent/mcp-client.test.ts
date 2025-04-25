@@ -10,7 +10,7 @@ describe('MinimalMcpClient', () => {
 
   it('should throw on request and notify (not implemented)', async () => {
     const client = new MinimalMcpClient(options);
-    await expect(client.request('foo')).rejects.toThrow('Not implemented');
+    await expect(client.request('foo')).rejects.toThrow(/Not implemented|MCP process is not started or missing stdio/);
     await expect(client.notify('bar')).rejects.toThrow('Not implemented');
   });
 

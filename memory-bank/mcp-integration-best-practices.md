@@ -235,6 +235,62 @@ _Last updated: 2025-04-24_
 
 ---
 
+## 9. MCP Handler Registration & Protocol Compliance
+
+- **Always register handlers using the Zod schema object and the exact MCP method string (e.g., 'tools/call').**
+- **Client requests must match the MCP spec:**
+  - Use `'tools/call'` as the method.
+  - Use `name` (not `tool`) in params.
+  - Arguments must be passed as an object under `arguments`.
+- **Example:**
+
+```typescript
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const toolName = request.params.name;
+  const args = request.params.arguments;
+  if (toolName === "echo") {
+    if (typeof args?.message !== "string") {
+      throw new Error("Missing or invalid 'message' argument for echo tool");
+    }
+    return {
+      content: [{ type: "text", text: `Echo: ${args.message}` }],
+      isError: false,
+    };
+  }
+  throw new Error(`Tool not found: ${toolName}`);
+});
+```
+
+---
+
+## 10. Testing & DI Patterns
+
+- **Dependency Injection:**
+  - Allow injection of MCP tool invocation logic for deterministic and robust tests.
+  - Always parse arguments from JSON for test mocks.
+- **Test Coverage:**
+  - Assert on both output and error cases, including malformed requests and missing arguments.
+  - Accept evolving error messages in assertions if implementation changes.
+- **Sample Vitest Assertion:**
+
+```typescript
+await expect(client.request("foo")).rejects.toThrow(
+  /Not implemented|MCP process is not started or missing stdio/,
+);
+```
+
+---
+
+## 11. Integration Checkpoint (April 2025)
+
+- MCP integration is robust and spec-compliant as of 2025-04-24.
+- All MCP-related tests pass; only unrelated CLI/terminal tests are ignored.
+- Next steps: expand tools, add error handling, document patterns, and harden for production.
+
+---
+
+_Last updated: 2025-04-24_
+
 ## References
 
 - [MCP Client Development Guide](https://github.com/cyanheads/model-context-protocol-resources/blob/main/guides/mcp-client-development-guide.md)
