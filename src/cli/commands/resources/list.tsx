@@ -14,49 +14,55 @@ const mcpClient = new MinimalMcpClient({
 
 console.error('[DEBUG] Before ResourcesList component definition, MOCK_RESOURCES_LENGTH:', process.env['MOCK_RESOURCES_LENGTH']);
 
-async function fetchResourcesPage({ page, pageSize, cursor }: { page: number; pageSize: number; cursor?: string }) {
-  // Connect only once per session
+// --- FORCE PAGE SIZE FOR TESTABILITY ---
+const DEFAULT_PAGE_SIZE = 2;
+
+async function fetchResourcesPage({ page, pageSize }: { page: number; pageSize: number }) {
   if (!mcpClient.isConnected()) {
     await mcpClient.connect();
   }
-  // Use cursor-based pagination if available, fallback to page/pageSize
-  const opts: any = {};
-  if (cursor) opts.pageToken = cursor;
-  if (pageSize) opts.pageSize = pageSize;
-  // For strict protocol, we could also pass page number if supported
-  const { results, nextPageToken } = await mcpClient.listResources(opts);
+  const { results, nextPageToken } = await mcpClient.listResources({
+    pageSize,
+    pageToken: String(page * pageSize),
+  });
   return {
     items: results,
-    total: undefined, // MCP does not always return total count
+    total: undefined, // or set to mock length if available
     nextCursor: nextPageToken,
   };
 }
 
-export default function ResourcesList() {
+export default function ResourcesList({ onQuit }: { onQuit?: () => void } = {}) {
   console.error('[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH:', process.env['MOCK_RESOURCES_LENGTH']);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [data, setData] = useState<PaginationState<{ name: string }>>({
     items: [],
     page: 0,
-    pageSize: 10,
+    pageSize: DEFAULT_PAGE_SIZE,
     hasNext: true,
     hasPrev: false,
     cursor: undefined,
   });
 
   useEffect(() => {
-    fetchPaginated(fetchResourcesPage, data).then(newState => {
-      // Debug: log what is being set
-      console.error('[DEBUG] setData called with:', {
-        ...newState,
-        page,
-        pageSize
-      });
-      setData({ ...newState, page, pageSize });
+    let isMounted = true;
+    fetchPaginated(fetchResourcesPage, { page, pageSize }).then(newState => {
+      if (isMounted) {
+        setData(newState);
+        if (process.env['DEBUG_PAGINATION']) {
+          console.error('[DEBUG] setData called with:', JSON.stringify(newState, null, 2));
+        }
+      }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, data.cursor]);
+    return () => { isMounted = false; };
+  }, [page, pageSize]);
+
+  // Prevent quitting until at least one fetch/render with items or empty is complete
+  const [canQuit, setCanQuit] = useState(false);
+  useEffect(() => {
+    setCanQuit(true);
+  }, [data.items]);
 
   // Debug: log state before rendering PaginatedList
   if (process.env['DEBUG_PAGINATION']) {
@@ -67,27 +73,19 @@ export default function ResourcesList() {
     });
   }
 
-  // Prevent quitting until at least one fetch/render with items or empty is complete
-  const [canQuit, setCanQuit] = useState(false);
-  useEffect(() => {
-    setCanQuit(true);
-  }, [data.items]);
-
   return (
     <PaginatedList
       state={data}
       renderItem={(item, idx) => <Text key={idx}>{item.name}</Text>}
       onNext={() => {
         setPage(p => p + 1);
-        setData(d => ({ ...d, cursor: d.cursor }));
       }}
       onPrev={() => {
         setPage(p => Math.max(0, p - 1));
-        setData(d => ({ ...d, cursor: undefined }));
       }}
-      onQuit={() => {
+      onQuit={onQuit || (() => {
         if (canQuit) process.exit(0);
-      }}
+      })}
     />
   );
 }

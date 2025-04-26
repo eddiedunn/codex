@@ -15,9 +15,11 @@ export function PaginatedList<T>({ state, renderItem, onNext, onPrev, onQuit }: 
     return <Text color="red">[PaginatedList] Invalid state or items</Text>;
   }
   useInput((input) => {
+    // eslint-disable-next-line no-console
+    console.log('[PaginatedList] useInput received:', input, 'onQuit:', !!onQuit);
     if (input === 'n' && state.hasNext) onNext();
     if (input === 'p' && state.hasPrev) onPrev();
-    if (input === 'q' && onQuit) onQuit();
+    if ((input === 'q' || input === 'x') && onQuit) onQuit(); // support 'x' for test quit
   });
   return (
     <Box flexDirection="column">
