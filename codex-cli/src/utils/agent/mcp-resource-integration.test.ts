@@ -20,13 +20,13 @@ describe('MCP Resource Protocol (integration)', () => {
 
   it('should list resources', async () => {
     const resources = await client.listResources();
-    expect(Array.isArray(resources)).toBe(true);
-    expect(resources[0]).toHaveProperty('uri');
+    expect(Array.isArray(resources.results)).toBe(true);
+    expect(resources.results[0]).toHaveProperty('uri');
   });
 
   it('should read a resource', async () => {
     const resources = await client.listResources();
-    const uri = resources[0].uri;
+    const uri = resources.results[0].uri;
     const content = await client.readResource(uri);
     expect(content).toBeDefined();
   });
@@ -38,10 +38,14 @@ describe('MCP Resource Protocol (unit, mock)', () => {
     const client = new MinimalMcpClient({ transport: 'stdio', stdioPath: 'mock' });
     // @ts-ignore
     client.request = async (method: string) => {
-      if (method === 'resources/list') return [{ id: 'foo', name: 'bar' }];
-      return [];
+      if (method === 'resources/list') return { resources: [{ id: 'foo', name: 'bar' }] };
+      return { resources: [] };
     };
     const resources = await client.listResources();
-    expect(resources).toEqual([{ id: 'foo', name: 'bar' }]);
+    expect(resources).toEqual({
+      results: [{ id: 'foo', name: 'bar' }],
+      nextPageToken: undefined,
+      prevPageToken: undefined,
+    });
   });
 });

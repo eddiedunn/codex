@@ -199,12 +199,14 @@ The hardening mechanism Codex uses depends on your OS:
 
 ## CLI Reference
 
-| Command                              | Purpose                             | Example                              |
-| ------------------------------------ | ----------------------------------- | ------------------------------------ |
-| `codex`                              | Interactive REPL                    | `codex`                              |
-| `codex "..."`                        | Initial prompt for interactive REPL | `codex "fix lint errors"`            |
-| `codex -q "..."`                     | Non-interactive "quiet mode"        | `codex -q --json "explain utils.ts"` |
-| `codex completion <bash\|zsh\|fish>` | Print shell completion script       | `codex completion bash`              |
+| Command                              | Purpose                                                           | Example                              |
+| ------------------------------------ | ----------------------------------------------------------------- | ------------------------------------ |
+| `codex`                              | Interactive REPL                                                  | `codex`                              |
+| `codex "..."`                        | Initial prompt for interactive REPL                               | `codex "fix lint errors"`            |
+| `codex -q "..."`                     | Non-interactive "quiet mode"                                      | `codex -q --json "explain utils.ts"` |
+| `codex completion <bash\|zsh\|fish>` | Print shell completion script                                     | `codex completion bash`              |
+| `codex resources`                    | List available MCP resources with interactive pagination          | `codex resources`                    |
+| `codex templates`                    | List available MCP resource templates with interactive pagination | `codex templates`                    |
 
 Key flags: `--model/-m`, `--approval-mode/-a`, `--quiet/-q`, and `--notify`.
 

@@ -7,8 +7,8 @@ import type {
   StdioPipe,
 } from "child_process";
 
-import { log } from "../../logger/log.js";
-import { adaptCommandForPlatform } from "../platform-commands.js";
+import { log } from "../../logger/log";
+import { adaptCommandForPlatform } from "../platform-commands";
 import { createTruncatingCollector } from "./create-truncating-collector";
 import { spawn } from "child_process";
 import * as os from "os";
