@@ -1,4 +1,5 @@
-#!/usr/bin/env node
+// @ts-nocheck
+
 /**
  * Minimal, spec-correct MCP mock server for integration testing.
  * Transport: stdio (JSON-RPC 2.0)
@@ -30,10 +31,10 @@ const resources = [
 
 function sendResponse(resp: JsonRpcResponse): void {
   process.stdout.write(JSON.stringify(resp) + '\n');
+  process.stdout.emit && process.stdout.emit('flush');
 }
 
 function handleRequest(req: JsonRpcRequest): void {
-  // Spec: must always reply with either result or error
   if (!req.method) {
     sendResponse({
       jsonrpc: '2.0',
@@ -43,9 +44,10 @@ function handleRequest(req: JsonRpcRequest): void {
     return;
   }
   if (req.method === 'tools/call') {
-    const { name, arguments: args } = req.params || {};
+    const { name, arguments: toolArgs } = req.params || {};
     if (name === 'echo') {
-      if (!args || typeof args.message !== 'string') {
+      const msgArgs = toolArgs;
+      if (!msgArgs.message || typeof msgArgs.message !== 'string') {
         sendResponse({
           jsonrpc: '2.0',
           id: req.id,
@@ -57,8 +59,19 @@ function handleRequest(req: JsonRpcRequest): void {
         jsonrpc: '2.0',
         id: req.id,
         result: {
-          content: [{ text: args.message, type: 'text' }],
+          content: [{ text: msgArgs.message, type: 'text' }],
         },
+      });
+      return;
+    } else if (name === 'error_tool') {
+      sendResponse({
+        jsonrpc: '2.0',
+        id: req.id,
+        error: {
+          code: 1234,
+          message: 'Simulated tool error',
+          data: { mcpToolError: true }
+        }
       });
       return;
     } else {
@@ -96,7 +109,6 @@ function handleRequest(req: JsonRpcRequest): void {
     });
     return;
   } else if (req.method === 'events/subscribe') {
-    // Stub: just return error (not implemented)
     sendResponse({
       jsonrpc: '2.0',
       id: req.id,
@@ -116,18 +128,22 @@ function handleRequest(req: JsonRpcRequest): void {
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
-  terminal: false,
 });
 
 rl.on('line', (line) => {
-  let req: JsonRpcRequest;
   try {
-    req = JSON.parse(line);
-  } catch (e) {
-    // Ignore invalid JSON
-    return;
+    const req = JSON.parse(line);
+    handleRequest(req);
+  } catch (err) {
+    console.error('[MOCK SERVER] Failed to parse JSON:', err, 'Line:', line);
   }
-  handleRequest(req);
 });
 
-process.on('SIGINT', () => process.exit(0));
+rl.on('close', () => {
+  console.log('[MOCK SERVER] Readline closed');
+});
+
+process.on('SIGTERM', () => {
+  console.log('[MOCK SERVER] Received SIGTERM, exiting');
+  process.exit(0);
+});

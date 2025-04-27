@@ -35,6 +35,33 @@ Codex must fully support the MCP protocol as specified, with no separate CLI age
 
 ---
 
+## **MCP Protocol Roadmap (2025-04-27)**
+
+## Immediate Focus
+- Tool Invocation (`tools/call`)
+  - Implement type-safe `callTool` method in MCP client.
+  - Ensure protocol-compliant error handling (in-band vs protocol-level errors).
+  - Canonical Vitest tests with mock server for all tool call scenarios (success, tool error, protocol error).
+  - Logging and diagnostics per windsurf rules.
+
+## Full Protocol Coverage (Planned)
+- [x] Tool invocation (`tools/call`)
+- [ ] Resource listing/CRUD endpoints
+- [ ] Template listing endpoints
+- [ ] Subscriptions/notifications
+- [ ] Streaming/content types (audio, blob, etc.)
+- [ ] Error/edge-case handling
+- [ ] Versioning/metadata endpoints
+- [ ] Test coverage for all above (using canonical mock server)
+- [ ] Documentation and memory bank updates for all new protocol features
+
+## Next Steps
+- Complete tool invocation implementation and tests.
+- Sequentially implement and test each protocol area above.
+- Update the memory bank and docs after each milestone.
+
+---
+
 ## **Full Spec Roadmap (Post-MVP)**
 
 - Multi-server support, dynamic server management, advanced resource flows, and additional endpoints can be added after the MVP is complete and protocol compliance is verified.

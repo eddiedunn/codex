@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Text, Box } from 'ink';
-import { MinimalMcpClient } from '../../../codex-cli/src/utils/agent/mcp-client.js';
+import { MinimalMcpClient } from '../../../codex-cli/src/utils/agent/mcp-client';
 
 interface Props {
   uri: string;

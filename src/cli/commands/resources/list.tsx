@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Text } from 'ink';
 import { fetchPaginated, PaginationState } from '../../../agent/pagination.js';
 import { PaginatedList } from '../../../ui/PaginatedList.js';
-import { MinimalMcpClient } from '../../../codex-cli/src/utils/agent/mcp-client.js';
+import { MinimalMcpClient } from '../../../codex-cli/src/utils/agent/mcp-client.ts';
 
 const mcpClient = new MinimalMcpClient({
   transport: 'stdio',

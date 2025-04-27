@@ -13,7 +13,8 @@
     "typecheck": "pnpm --filter @openai/codex run typecheck",
     "changelog": "git-cliff --config cliff.toml --output CHANGELOG.ignore.md $LAST_RELEASE_TAG..HEAD",
     "prepare": "husky",
-    "husky:add": "husky add"
+    "husky:add": "husky add",
+    "pretest": "tsc --build && tsc --project codex-cli/src/utils/agent/tsconfig.mock-server.json"
   },
   "devDependencies": {
     "@inkjs/ui": "^2.0.0",

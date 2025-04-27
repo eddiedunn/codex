@@ -7,7 +7,7 @@ import ResourcesList from './list';
 const TOTAL_RESOURCES = 6;
 const PAGE_SIZE = 2;
 const ALL_RESOURCES = Array.from({ length: TOTAL_RESOURCES }, (_, i) => ({ name: `Resource ${i + 1}` }));
-vi.mock('../../../codex-cli/src/utils/agent/mcp-client.js', () => {
+vi.mock('../../../codex-cli/src/utils/agent/mcp-client', () => {
   return {
     MinimalMcpClient: class {
       async connect() { return true; }

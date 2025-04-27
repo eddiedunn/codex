@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { render, waitFor, screen } from 'ink-testing-library';
-import TemplatesList from './templates.js';
+import TemplatesList from './templates';
 
 // Mock MinimalMcpClient and dependency injection
-vi.mock('../../../codex-cli/src/utils/agent/mcp-client.js', () => {
+vi.mock('../../../codex-cli/src/utils/agent/mcp-client', () => {
   class MockMcpClient {
     static templates = Array.from({ length: 25 }, (_, i) => ({ name: `Template #${i + 1}` }));
     constructor() {}
@@ -49,7 +49,7 @@ describe('TemplatesList CLI', () => {
   });
 
   it('handles empty templates', async () => {
-    const { MinimalMcpClient } = require('../../../codex-cli/src/utils/agent/mcp-client.js');
+    const { MinimalMcpClient } = require('../../../codex-cli/src/utils/agent/mcp-client');
     MinimalMcpClient.templates = [];
     const { lastFrame } = render(<TemplatesList />);
     await waitFor(() => {
@@ -58,7 +58,7 @@ describe('TemplatesList CLI', () => {
   });
 
   it('handles MCP client errors', async () => {
-    vi.doMock('../../../codex-cli/src/utils/agent/mcp-client.js', () => {
+    vi.doMock('../../../codex-cli/src/utils/agent/mcp-client', () => {
       return {
         MinimalMcpClient: class {
           isConnected() { return true; }
@@ -68,7 +68,7 @@ describe('TemplatesList CLI', () => {
       };
     }, { virtual: true });
     // Re-import the component to use the new mock
-    const ErrorTemplatesList = (await import('./templates.js')).default;
+    const ErrorTemplatesList = (await import('./templates')).default;
     const { lastFrame } = render(<ErrorTemplatesList />);
     await waitFor(() => {
       expect(lastFrame()).toContain('MCP error');

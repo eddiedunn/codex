@@ -1,43 +1,88 @@
 import { MinimalMcpClient } from './mcp-client';
 import { spawn } from 'child_process';
 import path from 'path';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // Integration test with local MCP mock server (replaces mcptools)
-const MOCK_SERVER_PATH = path.resolve(__dirname, './mcp-mock-server.ts');
+const MOCK_SERVER_PATH = path.resolve(__dirname, '../../../dist/utils/agent/mcp-mock-server.js');
 
 let mockProcess: ReturnType<typeof spawn> | null = null;
 
 function startMockServer() {
-  // Use Node.js to spawn the TypeScript mock server
-  return spawn('node', [MOCK_SERVER_PATH], {
+  // Spawn the precompiled JS mock server for canonical integration
+  const compiledPath = path.resolve(__dirname, '../../../dist/utils/agent/mcp-mock-server.js');
+  console.log(`[MOCK SERVER COMPILED PATH] ${compiledPath}`);
+  const proc = spawn('node', [compiledPath], {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env },
   });
+  console.log(`[TEST] Spawned mock server PID=${proc.pid}`);
+  // Forward all mock server output to a dedicated /tmp log file as well as to the test process
+  const fs = require('fs');
+  const logPath = `/tmp/codex-mock-server-${Date.now()}.log`;
+  console.log(`[MOCK SERVER LOG FILE] ${logPath}`);
+  const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+  let logClosed = false;
+  function safeCloseLog() {
+    if (!logClosed) {
+      logStream.end();
+      logClosed = true;
+    }
+  }
+  proc.stdout.on('data', data => {
+    process.stdout.write(`[MOCK SERVER STDOUT] ${data}`);
+    if (!logClosed) logStream.write(`[MOCK SERVER STDOUT] ${data}`);
+  });
+  proc.stderr.on('data', data => {
+    process.stderr.write(`[MOCK SERVER STDERR] ${data}`);
+    if (!logClosed) logStream.write(`[MOCK SERVER STDERR] ${data}`);
+  });
+  proc.on('exit', (code, signal) => {
+    const msg = `[MOCK SERVER EXIT] code=${code}, signal=${signal}\n`;
+    process.stdout.write(msg);
+    if (!logClosed) logStream.write(msg);
+    safeCloseLog();
+  });
+  proc.on('close', (code, signal) => {
+    const msg = `[MOCK SERVER CLOSE] code=${code}, signal=${signal}\n`;
+    process.stdout.write(msg);
+    if (!logClosed) logStream.write(msg);
+    safeCloseLog();
+  });
+  return proc;
+}
+
+function logClientEvent(event, ...args) {
+  console.log(`[CLIENT] ${event}`, ...args);
 }
 
 describe('MCP stdio integration (local mock server)', () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     mockProcess = startMockServer();
-    await new Promise(res => setTimeout(res, 500)); // Shorter wait: local server is fast
+    await new Promise(res => setTimeout(res, 250));
   });
 
-  afterAll(() => {
+  afterEach(() => {
     if (mockProcess) {
       mockProcess.kill();
+      mockProcess = null;
     }
   });
 
   it('should connect and invoke the echo tool', async () => {
+    logClientEvent('Test started');
     const client = new MinimalMcpClient({
       transport: 'stdio',
       process: mockProcess,
     });
+    logClientEvent('Client created');
     await client.connect();
+    logClientEvent('Client connected');
     const echoResult = await client.request('tools/call', {
       name: 'echo',
       arguments: { message: 'hello MCP' }
     });
+    logClientEvent('Received echo result', echoResult);
     expect(echoResult).toHaveProperty('content');
     expect(Array.isArray(echoResult.content)).toBe(true);
     expect(echoResult.content[0]?.text ?? '').toMatch(/hello MCP/i);
@@ -202,6 +247,54 @@ describe('MCP stdio integration (local mock server)', () => {
       // Accept this as a known limitation for now
       expect(typeof client.isConnected()).toBe('boolean');
       // TODO: Improve MinimalMcpClient to update state immediately on process exit/kill
+    });
+  });
+
+  // --- TOOL CALLS ---
+  describe('MCP tool calls', () => {
+    it('should invoke the echo tool via callTool', async () => {
+      const client = new MinimalMcpClient({
+        transport: 'stdio',
+        process: mockProcess,
+      });
+      await client.connect();
+      const result = await client.callTool('echo', { message: 'hello MCP' });
+      expect(result).toHaveProperty('content');
+      expect(Array.isArray(result.content)).toBe(true);
+      expect(result.content[0]?.text ?? '').toMatch(/hello MCP/i);
+    });
+
+    it('should throw in-band tool error via callTool', async () => {
+      const client = new MinimalMcpClient({
+        transport: 'stdio',
+        process: mockProcess,
+      });
+      await client.connect();
+      // Assuming mock server returns isError for this tool
+      await expect(client.callTool('error_tool', { fail: true }))
+        .rejects.toMatchObject({ mcpToolError: true });
+    });
+
+    it('should throw protocol error for unknown tool via callTool', async () => {
+      const client = new MinimalMcpClient({
+        transport: 'stdio',
+        process: mockProcess,
+      });
+      await client.connect();
+      await expect(client.callTool('nonexistent_tool', { foo: 'bar' }))
+        .rejects.toThrow(/protocol error/i);
+    });
+
+    it('should throw error for malformed arguments via callTool', async () => {
+      const client = new MinimalMcpClient({
+        transport: 'stdio',
+        process: mockProcess,
+      });
+      await client.connect();
+      // Pass a string instead of object for arguments
+      // @ts-expect-error: Deliberate misuse for test
+      await expect(client.callTool('echo', 'not-an-object'))
+        .rejects.toThrow();
     });
   });
 });

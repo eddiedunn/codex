@@ -5,7 +5,7 @@ let mcp;
 let responses = '';
 
 describe('MCP Protocol Integration (mcptools mock)', () => {
-  beforeAll((done) => {
+  beforeAll(async () => {
     // Start the mcptools mock server with an echo tool
     mcp = spawn('mcp', [
       'mock',
@@ -20,7 +20,7 @@ describe('MCP Protocol Integration (mcptools mock)', () => {
     });
 
     // Wait a bit for server to be ready
-    setTimeout(done, 400);
+    await new Promise((resolve) => setTimeout(resolve, 400));
   });
 
   afterAll(() => {
