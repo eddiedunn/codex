@@ -2,8 +2,9 @@
 // Implements JSON-RPC 2.0 framing and supports stdio and HTTP/SSE transports
 // Spec-compliant, extensible, and testable
 
+import type { ChildProcessWithoutNullStreams } from "child_process";
+import { spawn } from "child_process";
 import { EventEmitter } from "events";
-import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import * as readline from "readline";
 
 export type McpTransportType = "stdio" | "http";
@@ -14,20 +15,24 @@ export interface McpClientOptions {
   stdioArgs?: string[]; // Args for stdio transport
   httpUrl?: string;   // URL of MCP server (if using HTTP/SSE)
   process?: ChildProcessWithoutNullStreams; // Injected process for stdio transport (test/mocking)
-  // Add config fields as needed (Claude Desktop style, etc.)
 }
 
 export interface McpNotificationHandler {
-  (method: string, params: any): void;
+  (method: string, params: Record<string, unknown>): void;
 }
 
 export interface McpClient {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
-  request<T = any>(method: string, params?: object): Promise<T>;
-  notify(method: string, params?: object): Promise<void>;
+  request<T>(method: string, params?: Record<string, unknown>): Promise<T>;
+  notify(method: string, params?: Record<string, unknown>): Promise<void>;
   onNotification(handler: McpNotificationHandler): void;
   isConnected(): boolean;
+  listResources(opts?: { pageToken?: string; pageSize?: number }): Promise<{ results: unknown[]; nextPageToken?: string; prevPageToken?: string }>;
+  listResourceTemplates(opts?: { pageToken?: string; pageSize?: number }): Promise<{ results: unknown[]; nextPageToken?: string; prevPageToken?: string }>;
+  readResource(uri: string): Promise<unknown>;
+  subscribeResource(uri: string): Promise<void>;
+  unsubscribeResource(uri: string): Promise<void>;
 }
 
 export class MinimalMcpClient implements McpClient {
@@ -35,7 +40,6 @@ export class MinimalMcpClient implements McpClient {
   private process?: ChildProcessWithoutNullStreams;
   private connected = false;
   private notificationEmitter = new EventEmitter();
-  // TODO: Add HTTP/SSE client state
 
   constructor(options: McpClientOptions) {
     this.options = options;
@@ -44,7 +48,7 @@ export class MinimalMcpClient implements McpClient {
     }
   }
 
-  async connect() {
+  async connect(): Promise<void> {
     if (this.options.transport === "stdio") {
       if (!this.process) {
         if (!this.options.stdioPath) {
@@ -57,18 +61,18 @@ export class MinimalMcpClient implements McpClient {
           { stdio: ["pipe", "pipe", "pipe"] }
         );
         this.process.on("exit", (code, signal) => {
-          console.warn(`[MCP CLIENT] MCP process exited with code=${code} signal=${signal}`);
+          // console.warn(`[MCP CLIENT] MCP process exited with code=${code} signal=${signal}`);
           this.connected = false;
         });
         this.process.on("error", (err) => {
-          console.error("[MCP CLIENT] MCP process error:", err);
+          // console.error("[MCP CLIENT] MCP process error:", err);
         });
         this.process.stdout.on("close", () => {
-          console.warn("[MCP CLIENT] MCP process stdout closed");
+          // console.warn("[MCP CLIENT] MCP process stdout closed");
           this.connected = false;
         });
         this.process.stdin.on("error", (err) => {
-          console.error("[MCP CLIENT] MCP process stdin error:", err);
+          // console.error("[MCP CLIENT] MCP process stdin error:", err);
         });
       }
       this.connected = true;
@@ -78,9 +82,9 @@ export class MinimalMcpClient implements McpClient {
     }
   }
 
-  async disconnect() {
+  async disconnect(): Promise<void> {
     if (this.process) {
-      console.info("[MCP CLIENT] Disconnecting MCP process...");
+      // console.info("[MCP CLIENT] Disconnecting MCP process...");
       this.process.kill();
       this.process = undefined;
     }
@@ -88,7 +92,7 @@ export class MinimalMcpClient implements McpClient {
     this.connected = false;
   }
 
-  async request<T = any>(method: string, params?: object): Promise<T> {
+  async request<T>(method: string, params?: Record<string, unknown>): Promise<T> {
     if (this.options.transport !== "stdio") {
       throw new Error("Only stdio transport is implemented");
     }
@@ -103,11 +107,11 @@ export class MinimalMcpClient implements McpClient {
       params: params || {},
     };
     // ENHANCED LOGGING: Outgoing request
-    console.log('[MCP CLIENT] Sending:', JSON.stringify(request));
+    // console.log('[MCP CLIENT] Sending:', JSON.stringify(request));
     try {
       this.process.stdin.write(JSON.stringify(request) + '\n');
     } catch (err) {
-      console.error('[MCP CLIENT] Failed to write to MCP process stdin:', err);
+      // console.error('[MCP CLIENT] Failed to write to MCP process stdin:', err);
       throw new Error('Failed to send request to MCP process');
     }
 
@@ -120,12 +124,12 @@ export class MinimalMcpClient implements McpClient {
         try {
           const msg = JSON.parse(line);
           // ENHANCED LOGGING: Incoming response
-          console.log('[MCP CLIENT] Received:', JSON.stringify(msg));
+          // console.log('[MCP CLIENT] Received:', JSON.stringify(msg));
           if (msg.id === id) {
             rl.removeListener("line", onLine);
             rl.close();
             if (msg.error) {
-              console.error('[MCP CLIENT] MCP error response:', msg.error);
+              // console.error('[MCP CLIENT] MCP error response:', msg.error);
               reject(new Error(msg.error.message || JSON.stringify(msg.error)));
             } else {
               resolve(msg.result);
@@ -140,33 +144,32 @@ export class MinimalMcpClient implements McpClient {
       setTimeout(() => {
         rl.removeListener("line", onLine);
         rl.close();
-        console.error('[MCP CLIENT] Timed out waiting for MCP response');
+        // console.error('[MCP CLIENT] Timed out waiting for MCP response');
         reject(new Error("Timed out waiting for MCP response"));
       }, 8000);
     });
   }
 
-  async notify(method: string, params?: object): Promise<void> {
+  async notify(method: string, params?: Record<string, unknown>): Promise<void> {
     // TODO: send JSON-RPC notification
     throw new Error("Not implemented");
   }
 
-  onNotification(handler: McpNotificationHandler) {
+  onNotification(handler: McpNotificationHandler): void {
     this.notificationEmitter.on("notification", handler);
   }
 
-  isConnected() {
+  isConnected(): boolean {
     return this.connected;
   }
 
-  // List resources with pagination
-  async listResources(opts?: { pageToken?: string; pageSize?: number }): Promise<{ results: any[]; nextPageToken?: string; prevPageToken?: string }> {
-    const params: Record<string, any> = {};
-    if (opts?.pageToken) params.pageToken = opts.pageToken;
-    if (opts?.pageSize) params.pageSize = opts.pageSize;
+  async listResources(opts?: { pageToken?: string; pageSize?: number }): Promise<{ results: unknown[]; nextPageToken?: string; prevPageToken?: string }> {
+    const params: Record<string, unknown> = {};
+    if (opts?.pageToken) {params.pageToken = opts.pageToken;}
+    if (opts?.pageSize) {params.pageSize = opts.pageSize;}
     const result = await this.request('resources/list', params);
     // Support both legacy array and new paginated object
-    if (Array.isArray(result)) return { results: result };
+    if (Array.isArray(result)) {return { results: result };}
     if (result && Array.isArray(result.resources)) {
       return {
         results: result.resources,
@@ -177,13 +180,12 @@ export class MinimalMcpClient implements McpClient {
     throw new Error('Unexpected response shape from resources/list');
   }
 
-  // List resource templates with pagination
-  async listResourceTemplates(opts?: { pageToken?: string; pageSize?: number }): Promise<{ results: any[]; nextPageToken?: string; prevPageToken?: string }> {
-    const params: Record<string, any> = {};
-    if (opts?.pageToken) params.pageToken = opts.pageToken;
-    if (opts?.pageSize) params.pageSize = opts.pageSize;
+  async listResourceTemplates(opts?: { pageToken?: string; pageSize?: number }): Promise<{ results: unknown[]; nextPageToken?: string; prevPageToken?: string }> {
+    const params: Record<string, unknown> = {};
+    if (opts?.pageToken) {params.pageToken = opts.pageToken;}
+    if (opts?.pageSize) {params.pageSize = opts.pageSize;}
     const result = await this.request('resources/templates', params);
-    if (Array.isArray(result)) return { results: result };
+    if (Array.isArray(result)) {return { results: result };}
     if (result && Array.isArray(result.templates)) {
       return {
         results: result.templates,
@@ -202,17 +204,14 @@ export class MinimalMcpClient implements McpClient {
     throw new Error('Unexpected response shape from resources/templates');
   }
 
-  // Read a resource by URI
-  async readResource(uri: string): Promise<any> {
+  async readResource(uri: string): Promise<unknown> {
     return this.request('resources/read', { uri });
   }
 
-  // Subscribe to resource updates (optional)
   async subscribeResource(uri: string): Promise<void> {
     await this.request('resources/subscribe', { uri });
   }
 
-  // Unsubscribe from resource updates
   async unsubscribeResource(uri: string): Promise<void> {
     await this.request('resources/unsubscribe', { uri });
   }

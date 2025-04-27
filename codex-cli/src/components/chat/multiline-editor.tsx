@@ -58,8 +58,7 @@ proto["emit"] = function patchedEmit(
       process.env["TEXTBUFFER_DEBUG"] === "1" ||
       process.env["TEXTBUFFER_DEBUG"] === "true"
     ) {
-      // eslint-disable-next-line no-console
-      console.log("[MultilineTextEditor:stdin] data", JSON.stringify(chunk));
+      // console.log("[MultilineTextEditor:stdin] data", JSON.stringify(chunk)); // Use logger if needed
     }
     // Store carriage returns as‑is so that Ink can distinguish between plain
     // <Enter> ("\r") and a bare line‑feed ("\n").  This matters because Ink's
@@ -85,8 +84,7 @@ proto["emit"] = function patchedEmit(
           process.env["TEXTBUFFER_DEBUG"] === "1" ||
           process.env["TEXTBUFFER_DEBUG"] === "true"
         ) {
-          // eslint-disable-next-line no-console
-          console.log("[MultilineTextEditor:stdin.read]", JSON.stringify(ret));
+          // console.log("[MultilineTextEditor:stdin.read]", JSON.stringify(ret)); // Use logger if needed
         }
         return ret;
       };
@@ -105,11 +103,7 @@ proto["emit"] = function patchedEmit(
         process.env["TEXTBUFFER_DEBUG"] === "1" ||
         process.env["TEXTBUFFER_DEBUG"] === "true"
       ) {
-        // eslint-disable-next-line no-console
-        console.log(
-          "[MultilineTextEditor:stdin] -> readable",
-          JSON.stringify(chunk),
-        );
+        // console.log("[MultilineTextEditor:stdin] -> readable", JSON.stringify(chunk)); // Use logger if needed
       }
       originalEmit.call(this, "readable");
     }
@@ -203,8 +197,7 @@ const MultilineTextEditorInner = (
         process.env["TEXTBUFFER_DEBUG"] === "1" ||
         process.env["TEXTBUFFER_DEBUG"] === "true"
       ) {
-        // eslint-disable-next-line no-console
-        console.log("[MultilineTextEditor] event", { input, key });
+        // console.log("[MultilineTextEditor] event", { input, key }); // Use logger if needed
       }
 
       // 1a) CSI-u / modifyOtherKeys *mode 2* (Ink strips initial ESC, so we
@@ -278,8 +271,7 @@ const MultilineTextEditorInner = (
         process.env["TEXTBUFFER_DEBUG"] === "1" ||
         process.env["TEXTBUFFER_DEBUG"] === "true"
       ) {
-        // eslint-disable-next-line no-console
-        console.log("[MultilineTextEditor] key event", { input, key });
+        // console.log("[MultilineTextEditor] key event", { input, key }); // Use logger if needed
       }
 
       const modified = buffer.current.handleInput(

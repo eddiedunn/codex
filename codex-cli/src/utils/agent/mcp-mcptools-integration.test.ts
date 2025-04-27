@@ -1,5 +1,5 @@
-import { beforeAll, afterAll, it, expect, describe } from 'vitest';
 import { spawn } from 'child_process';
+import { beforeAll, afterAll, it, expect, describe } from 'vitest';
 
 let mcp;
 let responses = '';
@@ -24,7 +24,7 @@ describe('MCP Protocol Integration (mcptools mock)', () => {
   });
 
   afterAll(() => {
-    if (mcp) mcp.kill();
+    if (mcp) {mcp.kill();}
   });
 
   it('responds to echo tool call', async () => {

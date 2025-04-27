@@ -3,7 +3,7 @@ import type { AppRollout } from "./app";
 import type { ApprovalPolicy } from "./approvals";
 import type { CommandConfirmation } from "./utils/agent/agent-loop";
 import type { AppConfig } from "./utils/config";
-import type { ResponseItem } from "openai/resources/responses/responses";
+// import type { ResponseItem } from "openai/resources/responses/responses";
 
 import App from "./app";
 import { runSinglePass } from "./cli-singlepass";
@@ -14,12 +14,12 @@ import { checkForUpdates } from "./utils/check-updates";
 import {
   getApiKey,
   loadConfig,
-  PRETTY_PRINT,
+  // PRETTY_PRINT,
   INSTRUCTIONS_FILEPATH,
 } from "./utils/config";
 import { createInputItem } from "./utils/input-utils";
 import { isModelSupportedForResponses } from "./utils/model-utils";
-import { parseToolCall } from "./utils/parsers";
+// import { parseToolCall } from "./utils/parsers";
 import { onExit, setInkRenderer } from "./utils/terminal";
 import { spawnSync } from "child_process";
 import fs from "fs";

@@ -10,13 +10,13 @@ interface JsonRpcRequest {
   jsonrpc: '2.0';
   id: number | string;
   method: string;
-  params?: any;
+  params?: Record<string, unknown>;
 }
 interface JsonRpcResponse {
   jsonrpc: '2.0';
   id: number | string;
-  result?: any;
-  error?: { code: number; message: string; data?: any };
+  result?: unknown;
+  error?: { code: number; message: string; data?: unknown };
 }
 
 const resources = [
@@ -28,11 +28,11 @@ const resources = [
   },
 ];
 
-function sendResponse(resp: JsonRpcResponse) {
+function sendResponse(resp: JsonRpcResponse): void {
   process.stdout.write(JSON.stringify(resp) + '\n');
 }
 
-function handleRequest(req: JsonRpcRequest) {
+function handleRequest(req: JsonRpcRequest): void {
   // Spec: must always reply with either result or error
   if (!req.method) {
     sendResponse({

@@ -1,7 +1,7 @@
-import React from "react";
-import { render } from "ink-testing-library";
-import { vi, describe, it, expect } from "vitest";
 import App from "../../../app";
+import { render } from "ink-testing-library";
+import React from "react";
+import { vi, describe, it, expect } from "vitest";
 
 // Mock MCP client with paginated responses
 const mockMcpClient = {
@@ -58,8 +58,8 @@ async function waitForOutput(fn: () => string, matcher: (s: string) => boolean, 
   const start = Date.now();
   while (Date.now() - start < timeout) {
     const val = fn() ?? "";
-    if (matcher(val)) return;
-    await new Promise(res => setTimeout(res, 50));
+    if (matcher(val)) {return;}
+    await new Promise(res => setTimeout(res, 50)); // Intentional use of await in loop for polling. Lint rule disabled as this is required for polling.
   }
   throw new Error("Timeout waiting for output");
 }
@@ -68,7 +68,7 @@ describe("CLI Pagination (Ink)", () => {
   it("shows paginated results and responds to 'next' and 'previous'", async () => {
     const { lastFrame, stdin } = render(
       <App
-        config={mockConfig as any}
+        config={mockConfig}
         approvalPolicy={"suggest"}
         additionalWritableRoots={[]}
         fullStdout={false}

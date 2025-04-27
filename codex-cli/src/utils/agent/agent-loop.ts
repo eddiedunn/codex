@@ -2,13 +2,13 @@ import type { ReviewDecision } from "./review.js";
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { AppConfig } from "../config.js";
 import type { ResponseEvent } from "../responses.js";
+import type { McpClient } from "./mcp-client";
 import type {
   ResponseItem,
   ResponseCreateParams,
   FunctionTool,
 } from "openai/resources/responses/responses.mjs";
 import type { Reasoning } from "openai/resources.mjs";
-import type { McpClient } from "./mcp-client";
 
 import {
   OPENAI_TIMEOUT_MS,
@@ -43,7 +43,7 @@ export type CommandConfirmation = {
   explanation?: string;
 };
 
-const alreadyProcessedResponses = new Set();
+const alreadyProcessedResponses = new Set<string>();
 const alreadyStagedItemIds = new Set<string>();
 
 type AgentLoopParams = {
@@ -72,7 +72,7 @@ type AgentLoopParams = {
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
   onLastResponseId: (lastResponseId: string) => void;
-  invokeMcpTool?: (toolName: string, params: Record<string, any>) => Promise<any>;
+  invokeMcpTool?: (toolName: string, params: Record<string, unknown>) => Promise<unknown>;
 };
 
 const shellTool: FunctionTool = {
@@ -123,7 +123,7 @@ export class AgentLoop {
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
   private onLastResponseId: (lastResponseId: string) => void;
-  private invokeMcpTool?: (toolName: string, params: Record<string, any>) => Promise<any>;
+  private invokeMcpTool?: (toolName: string, params: Record<string, unknown>) => Promise<unknown>;
 
   /**
    * A reference to the currently active stream returned from the OpenAI
@@ -161,7 +161,7 @@ export class AgentLoop {
   // --- PAGINATION STATE ---
   private paginationState: {
     lastQueryType?: 'resources' | 'templates',
-    lastQueryArgs?: Record<string, any>,
+    lastQueryArgs?: Record<string, unknown>,
     nextPageToken?: string,
     prevPageToken?: string,
     pageSize: number,
@@ -170,8 +170,8 @@ export class AgentLoop {
   // --- NATURAL LANGUAGE PAGINATION DETECTION ---
   private isPaginationCommand(input: string): 'next' | 'prev' | null {
     const normalized = input.trim().toLowerCase();
-    if (["next", "show more", "more", "forward"].includes(normalized)) return 'next';
-    if (["previous", "prev", "back", "show less", "earlier"].includes(normalized)) return 'prev';
+    if (["next", "show more", "more", "forward"].includes(normalized)) {return 'next';}
+    if (["previous", "prev", "back", "show less", "earlier"].includes(normalized)) {return 'prev';}
     return null;
   }
 
@@ -349,8 +349,8 @@ export class AgentLoop {
   }
 
   private async handleFunctionCall(
-    item: any,
-  ): Promise<any[]> {
+    item: ResponseInputItem,
+  ): Promise<Array<ResponseInputItem>> {
     // Always extract call_id for output (spec compliance)
     const callId = item.call_id ?? item.id;
 
@@ -358,7 +358,7 @@ export class AgentLoop {
     // Supports both flat (OpenAI legacy) and nested (OpenAI/MCP spec) tool calls
     const toolName = item.function?.name ?? item.name;
     const toolArgsRaw = item.function?.arguments ?? item.arguments ?? '{}';
-    let toolArgs: any;
+    let toolArgs: Record<string, unknown>;
     try {
       toolArgs = JSON.parse(toolArgsRaw);
     } catch (err) {

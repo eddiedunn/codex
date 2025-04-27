@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { spawn } from 'child_process';
 import { MinimalMcpClient } from './mcp-client';
+import { spawn } from 'child_process';
 import path from 'path';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 // Integration test with local MCP mock server (replaces mcptools)
 const MOCK_SERVER_PATH = path.resolve(__dirname, './mcp-mock-server.ts');
@@ -197,7 +197,7 @@ describe('MCP stdio integration (local mock server)', () => {
     it('should handle process disconnect', async () => {
       const client = new MinimalMcpClient({ transport: 'stdio', process: mockProcess });
       await client.connect();
-      if (mockProcess) mockProcess.kill();
+      if (mockProcess) {mockProcess.kill();}
       // NOTE: client.isConnected() may remain true until next I/O error due to current implementation
       // Accept this as a known limitation for now
       expect(typeof client.isConnected()).toBe('boolean');

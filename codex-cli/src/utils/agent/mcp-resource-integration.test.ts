@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { MinimalMcpClient } from './mcp-client';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 // Integration test with mcptools mock server
 describe('MCP Resource Protocol (integration, mcptools mock)', () => {
   let client: MinimalMcpClient;
-  let mockProcess: any;
+  let mockProcess: import('child_process').ChildProcess;
 
   beforeAll(async () => {
     // Start mcptools mock server with tool and resource
@@ -24,7 +24,7 @@ describe('MCP Resource Protocol (integration, mcptools mock)', () => {
   });
 
   afterAll(async () => {
-    if (mockProcess) mockProcess.kill();
+    if (mockProcess) {mockProcess.kill();}
     await client.disconnect();
   });
 
@@ -46,9 +46,9 @@ describe('MCP Resource Protocol (integration, mcptools mock)', () => {
 describe('MCP Resource Protocol (unit, mock)', () => {
   it('should parse resource list from mock server', async () => {
     const client = new MinimalMcpClient({ transport: 'stdio', stdioPath: 'mock' });
-    // @ts-ignore
+    // @ts-expect-error
     client.request = async (method: string) => {
-      if (method === 'resources/list') return { resources: [{ id: 'foo', name: 'bar' }] };
+      if (method === 'resources/list') {return { resources: [{ id: 'foo', name: 'bar' }] };}
       return { resources: [] };
     };
     const resources = await client.listResources();

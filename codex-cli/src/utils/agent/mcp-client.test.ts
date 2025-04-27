@@ -1,5 +1,7 @@
+import type { McpClientOptions } from './mcp-client';
+
+import { MinimalMcpClient } from './mcp-client';
 import { describe, it, expect, vi } from 'vitest';
-import { MinimalMcpClient, McpClientOptions } from './mcp-client';
 
 describe('MinimalMcpClient', () => {
   const options: McpClientOptions = { transport: 'stdio', stdioPath: '/bin/echo' };
