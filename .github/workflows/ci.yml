@@ -10,6 +10,7 @@ jobs:
     timeout-minutes: 10
     env:
       NODE_OPTIONS: --max-old-space-size=4096
+      UPLOAD_MCPTOOL_LOGS: 1
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -53,6 +54,28 @@ jobs:
 
       - name: Run tests
         run: pnpm run test
+
+      - name: Mask secrets in mcptools logs
+        if: always()
+        env:
+          MASK_MCPTOOL_LOGS: ${{ env.MASK_MCPTOOL_LOGS || '1' }}
+        run: |
+          chmod +x ./scripts/mask-secrets-in-logs.sh
+          if [ "${MASK_MCPTOOL_LOGS}" = "1" ]; then
+            ./scripts/mask-secrets-in-logs.sh
+          fi
+
+      - name: Archive mcptools protocol logs
+        if: ${{ always() && (env.UPLOAD_MCPTOOL_LOGS == '' || env.UPLOAD_MCPTOOL_LOGS == '1') }}
+        run: |
+          mkdir -p ./mcptools-logs
+          cp -v ~/.mcpt/logs/*.log ./mcptools-logs/ || echo "No mcptools logs found."
+      - name: Upload mcptools logs as artifact
+        if: ${{ always() && (env.UPLOAD_MCPTOOL_LOGS == '' || env.UPLOAD_MCPTOOL_LOGS == '1') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcptools-logs
+          path: ./mcptools-logs/
 
       - name: Lint
         run: |

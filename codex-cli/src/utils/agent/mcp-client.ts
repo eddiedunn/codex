@@ -13,6 +13,7 @@ export interface McpClientOptions {
   stdioPath?: string; // Path to MCP server binary (if using stdio)
   stdioArgs?: string[]; // Args for stdio transport
   httpUrl?: string;   // URL of MCP server (if using HTTP/SSE)
+  process?: ChildProcessWithoutNullStreams; // Injected process for stdio transport (test/mocking)
   // Add config fields as needed (Claude Desktop style, etc.)
 }
 
@@ -38,15 +39,18 @@ export class MinimalMcpClient implements McpClient {
 
   constructor(options: McpClientOptions) {
     this.options = options;
+    if (options.process) {
+      this.process = options.process;
+    }
   }
 
   async connect() {
     if (this.options.transport === "stdio") {
-      if (!this.options.stdioPath) {
-        throw new Error("Missing stdioPath for MCP stdio transport");
-      }
-      // Spawn the MCP server process if not already provided
       if (!this.process) {
+        if (!this.options.stdioPath) {
+          throw new Error("Missing stdioPath for MCP stdio transport");
+        }
+        // Spawn the MCP server process if not already provided
         this.process = spawn(
           this.options.stdioPath,
           this.options.stdioArgs || [],
@@ -98,7 +102,7 @@ export class MinimalMcpClient implements McpClient {
       method,
       params: params || {},
     };
-    // DEBUG: Log outgoing request
+    // ENHANCED LOGGING: Outgoing request
     console.log('[MCP CLIENT] Sending:', JSON.stringify(request));
     try {
       this.process.stdin.write(JSON.stringify(request) + '\n');
@@ -115,7 +119,7 @@ export class MinimalMcpClient implements McpClient {
       const onLine = (line: string) => {
         try {
           const msg = JSON.parse(line);
-          // DEBUG: Log incoming response
+          // ENHANCED LOGGING: Incoming response
           console.log('[MCP CLIENT] Received:', JSON.stringify(msg));
           if (msg.id === id) {
             rl.removeListener("line", onLine);
@@ -132,7 +136,7 @@ export class MinimalMcpClient implements McpClient {
         }
       };
       rl.on("line", onLine);
-      // Optionally: add a timeout for robustness
+      // ENHANCED LOGGING: Timeout for robustness
       setTimeout(() => {
         rl.removeListener("line", onLine);
         rl.close();

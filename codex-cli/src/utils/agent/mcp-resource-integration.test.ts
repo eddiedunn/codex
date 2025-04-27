@@ -1,20 +1,30 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { MinimalMcpClient } from './mcp-client';
 
-// Integration test with real MCP server (server-everything)
-describe('MCP Resource Protocol (integration)', () => {
+// Integration test with mcptools mock server
+describe('MCP Resource Protocol (integration, mcptools mock)', () => {
   let client: MinimalMcpClient;
+  let mockProcess: any;
 
   beforeAll(async () => {
+    // Start mcptools mock server with tool and resource
+    const { spawn } = await import('child_process');
+    mockProcess = spawn('mcp', [
+      'mock',
+      'tool', 'hello_world', 'A simple greeting tool',
+      'resource', 'docs://readme', 'Documentation', 'This is a mock resource'
+    ], { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env } });
+    // Wait for mock server to initialize
+    await new Promise(res => setTimeout(res, 1000));
     client = new MinimalMcpClient({
       transport: 'stdio',
-      stdioPath: 'npx',
-      stdioArgs: ['-y', '@modelcontextprotocol/server-everything']
+      process: mockProcess,
     });
     await client.connect();
   });
 
   afterAll(async () => {
+    if (mockProcess) mockProcess.kill();
     await client.disconnect();
   });
 

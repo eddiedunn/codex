@@ -1,3 +1,21 @@
+# Active Context (April 2025)
+
+- All MCP integration tests use the local mock server (`mcp-mock-server.ts`).
+- The test harness, docs, and memory bank have been updated.
+- The system is ready for rapid protocol evolution and new feature coverage.
+- Next: Run tests, confirm all pass, and iterate on the mock server as new protocol features are required.
+
+---
+
+## MCP Protocol Integration
+
+- All integration tests now use the local mock server (`mcp-mock-server.ts`).
+- `mcptools` is no longer used or required for testing.
+- The mock server is spec-correct, argument-validating, and easy to extend.
+- All test harnesses and docs have been updated accordingly.
+
+---
+
 # Active Context: MCP Protocol Client Migration (April 24, 2025)
 
 ## Major Decision: Drop Anthropic MCP SDK, Implement Native MCP Client

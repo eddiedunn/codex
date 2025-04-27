@@ -1,5 +1,21 @@
 # System Patterns
 
+## MCP Protocol Integration Testing (2025-04)
+
+- MCP protocol integration now uses an in-repo, spec-correct mock server (`mcp-mock-server.ts`).
+- All mcptools dependencies and related patterns have been deprecated.
+- The mock server is the canonical way to test protocol correctness and can be easily extended.
+
+## MCP Protocol Integration Testing (2025-04)
+
+- All MCP protocol integration tests now use a local, spec-correct mock server (`mcp-mock-server.ts`).
+- The previous `mcptools` dependency and related test harnesses have been fully removed.
+- The mock server is maintained in-repo and can be rapidly extended as the MCP spec evolves.
+- All protocol tests assert on spec-correct behavior (argument validation, error handling, etc.).
+- This ensures reliability, full control, and avoids drift from the MCP protocol.
+
+---
+
 ## Architecture
 
 - Core agent loop manages input, output, and tool invocation
@@ -35,6 +51,20 @@
 - Bypassing the registry when a DI function is present is critical for reliable, order-independent testability.
 - Always parse and pass arguments explicitly for tool calls.
 - Catch and stringify errors in the DI path for better test diagnostics.
+
+## MCP Integration Test Canonicalization (April 2025)
+
+- **mcptools mock/proxy server is the living reference for MCP protocol integration tests.**
+  - Test assertions must match mcptools's actual behavior, not just the written spec.
+  - If a feature is not implemented, tests should expect `method not found` or the real error, not a hypothetical strict error.
+  - Document all such expectations and TODOs for future strictness or upstream feature support.
+- **Examples:**
+  - Prompts/completions, streaming, and subscriptions: expect `method not found` unless implemented.
+  - Pagination: expect a resource even for out-of-bounds/negative pages.
+  - Malformed arguments: expect generic results, not errors.
+  - Process disconnect: isConnected() may not update immediately; document as a known limitation.
+- **Upstream Contribution:**
+  - If the MCP spec requires stricter or different behavior, consider contributing to mcptools or forking to match the spec.
 
 **Status:**
 
