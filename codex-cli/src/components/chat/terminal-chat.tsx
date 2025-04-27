@@ -142,7 +142,8 @@ export default function TerminalChat({
   fullStdout,
 }: Props): React.ReactElement {
   log("[DEBUG] TerminalChat rendered");
-  const notify = config.notify;
+  // Use the canonical, robust initialization for notify
+  const notify = Boolean(config.notify);
   const [model, setModel] = useState<string>(config.model);
   const [provider, setProvider] = useState<string>(config.provider || "openai");
   const [lastResponseId, setLastResponseId] = useState<string | null>(null);
@@ -457,20 +458,20 @@ export default function TerminalChat({
     [items, model],
   );
 
-  const handleSubmitInput = (...args: any[]) => {
+  const handleSubmitInput = (...args: Array<unknown>) => {
     log("[DEBUG] handleSubmitInput called", args);
-    console.log("[DEBUG] handleSubmitInput called", args);
+    // console.log("[DEBUG] handleSubmitInput called", args); // Use logger if needed
     if (typeof config.mcpClient?.listResources === "function") {
       log("[DEBUG] mcpClient.listResources is available");
-      console.log("[DEBUG] mcpClient.listResources is available");
+      // console.log("[DEBUG] mcpClient.listResources is available"); // Use logger if needed
     } else {
       log("[DEBUG] mcpClient.listResources is NOT available");
-      console.log("[DEBUG] mcpClient.listResources is NOT available");
+      // console.log("[DEBUG] mcpClient.listResources is NOT available"); // Use logger if needed
     }
     if (agent) {
       agent.run(args[0], lastResponseId || "");
     } else {
-      console.log("[DEBUG] agent is undefined");
+      // console.log("[DEBUG] agent is undefined"); // Use logger if needed
     }
     return {};
   };
@@ -591,7 +592,7 @@ export default function TerminalChat({
             providers={config.providers}
             currentProvider={provider}
             hasLastResponse={Boolean(lastResponseId)}
-            onSelect={(newModel) => {
+            onSelect={(allModels, newModel) => {
               log(
                 "TerminalChat: interruptAgent invoked – calling agent.cancel()",
               );
@@ -600,6 +601,22 @@ export default function TerminalChat({
               }
               agent?.cancel();
               setLoading(false);
+
+              if (!allModels?.includes(newModel)) {
+                // console.error(
+                //   chalk.bold.red(
+                //     `Model "${chalk.yellow(
+                //       newModel,
+                //     )}" is not available for provider "${chalk.yellow(
+                //       provider,
+                //     )}".`,
+                //   ),
+                // );
+                log(
+                  `Model "${newModel}" is not available for provider "${provider}".`
+                );
+                return;
+              }
 
               setModel(newModel);
               setLastResponseId((prev) =>

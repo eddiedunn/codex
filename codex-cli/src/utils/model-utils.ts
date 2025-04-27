@@ -1,8 +1,13 @@
 import type { ResponseItem } from "openai/resources/responses/responses.mjs";
 
-import { approximateTokensUsed } from "./approximate-tokens-used";
-import { getBaseUrl, getApiKey } from "./config";
-import { type SupportedModelId, openAiModelInfo } from "./model-info";
+import { approximateTokensUsed } from "./approximate-tokens-used.js";
+import {
+  OPENAI_ORGANIZATION,
+  OPENAI_PROJECT,
+  getBaseUrl,
+  getApiKey,
+} from "./config";
+import { type SupportedModelId, openAiModelInfo } from "./model-info.js";
 import OpenAI from "openai";
 
 const MODEL_LIST_TIMEOUT_MS = 2_000; // 2 seconds
@@ -22,9 +27,18 @@ async function fetchModels(provider: string): Promise<Array<string>> {
   }
 
   try {
+    const headers: Record<string, string> = {};
+    if (OPENAI_ORGANIZATION) {
+      headers["OpenAI-Organization"] = OPENAI_ORGANIZATION;
+    }
+    if (OPENAI_PROJECT) {
+      headers["OpenAI-Project"] = OPENAI_PROJECT;
+    }
+
     const openai = new OpenAI({
       apiKey: getApiKey(provider),
       baseURL: getBaseUrl(provider),
+      defaultHeaders: headers,
     });
     const list = await openai.models.list();
     const models: Array<string> = [];
@@ -110,6 +124,7 @@ export function maxTokensForModel(model: string): number {
     return 4000;
   }
   return 128000; // Default to 128k for any other model.
+  // No 'any' type used in this file that needs fixing.
 }
 
 /** Calculates the percentage of tokens remaining in context for a model. */

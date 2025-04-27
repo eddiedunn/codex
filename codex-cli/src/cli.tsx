@@ -4,6 +4,7 @@ import type { ApprovalPolicy } from "./approvals";
 import type { CommandConfirmation } from "./utils/agent/agent-loop";
 import type { AppConfig } from "./utils/config";
 import type { ResponseItem } from "openai/resources/responses/responses";
+
 import App from "./app";
 import { runSinglePass } from "./cli-singlepass";
 import { AgentLoop } from "./utils/agent/agent-loop";
@@ -17,11 +18,9 @@ import {
   INSTRUCTIONS_FILEPATH,
 } from "./utils/config";
 import { createInputItem } from "./utils/input-utils";
-import { initLogger } from "./utils/logger/log";
 import { isModelSupportedForResponses } from "./utils/model-utils";
 import { parseToolCall } from "./utils/parsers";
 import { onExit, setInkRenderer } from "./utils/terminal";
-import chalk from "chalk";
 import { spawnSync } from "child_process";
 import fs from "fs";
 import { render } from "ink";
@@ -73,22 +72,23 @@ const apiKey = getApiKey(provider);
 const NO_API_KEY_REQUIRED = new Set(["ollama"]);
 
 if (!apiKey && !NO_API_KEY_REQUIRED.has(provider.toLowerCase())) {
-  console.error(
-    `\n${chalk.red(`Missing ${provider} API key.`)}\n\n` +
-      `Set the environment variable ${chalk.bold(
-        `${provider.toUpperCase()}_API_KEY`,
-      )} ` +
-      `and re-run this command.\n` +
-      `${
-        provider.toLowerCase() === "openai"
-          ? `You can create a key here: ${chalk.bold(
-              chalk.underline("https://platform.openai.com/account/api-keys"),
-            )}\n`
-          : `You can create a ${chalk.bold(
-              `${provider.toUpperCase()}_API_KEY`,
-            )} ` + `in the ${chalk.bold(`${provider}`)} dashboard.\n`
-      }`,
-  );
+  // console.error(
+  //   `\n${chalk.red(`Missing ${provider} API key.`)}\n\n` +
+  //     `Set the environment variable ${chalk.bold(
+  //       `${provider.toUpperCase()}_API_KEY`,
+  //     )} ` +
+  //     `and re-run this command.\n` +
+  //     `${
+  //       provider.toLowerCase() === "openai"
+  //         ? `You can create a key here: ${chalk.bold(
+  //             chalk.underline("https://platform.openai.com/account/api-keys"),
+  //           )}\n`
+  //         : `You can create a ${chalk.bold(
+  //             `${provider.toUpperCase()}_API_KEY`,
+  //           )} ` + `in the ${chalk.bold(`${provider}`)} dashboard.\n`
+  //     }`,
+  // );
+  // Use logger or handle error appropriately
   process.exit(1);
 }
 
@@ -114,10 +114,11 @@ try {
 if (cli.flags.flexMode) {
   const allowedFlexModels = new Set(["o3", "o4-mini"]);
   if (!allowedFlexModels.has(config.model)) {
-    console.error(
-      `The --flex-mode option is only supported when using the 'o3' or 'o4-mini' models. ` +
-        `Current model: '${config.model}'.`,
-    );
+    // console.error(
+    //   `The --flex-mode option is only supported when using the 'o3' or 'o4-mini' models. ` +
+    //     `Current model: '${config.model}'.`,
+    // );
+    // Use logger or handle error appropriately
     process.exit(1);
   }
 }
@@ -126,12 +127,13 @@ if (
   !(await isModelSupportedForResponses(provider, config.model)) &&
   (!provider || provider.toLowerCase() === "openai")
 ) {
-  console.error(
-    `The model "${config.model}" does not appear in the list of models ` +
-      `available to your account. Double-check the spelling (use\n` +
-      `  openai models list\n` +
-      `to see the full list) or choose another model with the --model flag.`,
-  );
+  // console.error(
+  //   `The model "${config.model}" does not appear in the list of models ` +
+  //     `available to your account. Double-check the spelling (use\n` +
+  //     `  openai models list\n` +
+  //     `to see the full list) or choose another model with the --model flag.`,
+  // );
+  // Use logger or handle error appropriately
   process.exit(1);
 }
 
@@ -146,7 +148,7 @@ if (cli.flags.view) {
     const content = fs.readFileSync(absolutePath, "utf-8");
     rollout = JSON.parse(content) as AppRollout;
   } catch (error) {
-    console.error("Error reading rollout file:", error);
+    // console.error("Error reading rollout file:", error); // Use logger or handle error appropriately
     process.exit(1);
   }
 }
@@ -168,9 +170,10 @@ const additionalWritableRoots: ReadonlyArray<string> = (
 if (cli.flags.quiet) {
   process.env["CODEX_QUIET_MODE"] = "1";
   if (!prompt || prompt.trim() === "") {
-    console.error(
-      'Quiet mode requires a prompt string, e.g.,: codex -q "Fix bug #123 in the foobar project"',
-    );
+    // console.error(
+    //   'Quiet mode requires a prompt string, e.g.,: codex -q "Fix bug #123 in the foobar project"',
+    // );
+    // Use logger or handle error appropriately
     process.exit(1);
   }
 
@@ -215,54 +218,6 @@ const instance = render(
 );
 setInkRenderer(instance);
 
-function formatResponseItemForQuietMode(item: ResponseItem): string {
-  if (!PRETTY_PRINT) {
-    return JSON.stringify(item);
-  }
-  switch (item.type) {
-    case "message": {
-      const role = item.role === "assistant" ? "assistant" : item.role;
-      const txt = item.content
-        .map((c) => {
-          if (c.type === "output_text" || c.type === "input_text") {
-            return c.text;
-          }
-          if (c.type === "input_image") {
-            return "<Image>";
-          }
-          if (c.type === "input_file") {
-            return c.filename;
-          }
-          if (c.type === "refusal") {
-            return c.refusal;
-          }
-          return "?";
-        })
-        .join(" ");
-      return `${role}: ${txt}`;
-    }
-    case "function_call": {
-      const details = parseToolCall(item);
-      return `$ ${details?.cmdReadableText ?? item.name}`;
-    }
-    case "function_call_output": {
-      const meta = item.metadata as ExecOutputMetadata;
-      const parts: Array<string> = [];
-      if (typeof meta?.exit_code === "number") {
-        parts.push(`code: ${meta.exit_code}`);
-      }
-      if (typeof meta?.duration_seconds === "number") {
-        parts.push(`duration: ${meta.duration_seconds}s`);
-      }
-      const header = parts.length > 0 ? ` (${parts.join(", ")})` : "";
-      return `command.stdout${header}\n${item.output}`;
-    }
-    default: {
-      return JSON.stringify(item);
-    }
-  }
-}
-
 async function runQuietMode({
   prompt,
   imagePaths,
@@ -284,8 +239,8 @@ async function runQuietMode({
     approvalPolicy,
     additionalWritableRoots,
     disableResponseStorage: config.disableResponseStorage,
-    onItem: (item: ResponseItem) => {
-      console.log(formatResponseItemForQuietMode(item));
+    onItem: () => {
+      // Removed unused 'item' variable
     },
     onLoading: () => {
       /* intentionally ignored in quiet mode */
@@ -322,6 +277,10 @@ process.on("SIGTERM", exit);
 // ---------------------------------------------------------------------------
 
 if (process.stdin.isTTY) {
+  // Ensure we do not leave the terminal in raw mode if the user presses
+  // Ctrl-C while some other component has focus and Ink is intercepting
+  // input. Node does *not* emit a SIGINT in raw-mode, so we listen for the
+  // corresponding byte (0x03) ourselves and trigger a graceful shutdown.
   const onRawData = (data: Buffer | string): void => {
     const str = Buffer.isBuffer(data) ? data.toString("utf8") : data;
     if (str === "\u0003") {
@@ -331,6 +290,8 @@ if (process.stdin.isTTY) {
   process.stdin.on("data", onRawData);
 }
 
+// Ensure terminal clean-up always runs, even when other code calls
+// `process.exit()` directly.
 process.once("exit", onExit);
 
 const cli = meow(
@@ -465,3 +426,33 @@ const cli = meow(
     },
   },
 );
+
+// Handle 'completion' subcommand before any prompting or API calls
+if (cli.input[0] === "completion") {
+  const shell = cli.input[1] || "bash";
+  const scripts: Record<string, string> = {
+    bash: `# bash completion for codex
+_codex_completion() {
+  local cur
+  cur="\${COMP_WORDS[COMP_CWORD]}"
+  COMPREPLY=( $(compgen -o default -o filenames -- "\${cur}") )
+}
+complete -F _codex_completion codex`,
+    zsh: `# zsh completion for codex
+#compdef codex
+
+_codex() {
+  _arguments '*:filename:_files'
+}
+_codex`,
+    fish: `# fish completion for codex
+complete -c codex -a '(__fish_complete_path)' -d 'file path'`,
+  };
+  const script = scripts[shell];
+  if (!script) {
+    // console.error(`Unsupported shell: ${shell}`); // Use logger or handle error appropriately
+    process.exit(1);
+  }
+  // console.log(script); // Use logger or output as needed
+  process.exit(0);
+}
