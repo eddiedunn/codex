@@ -29,8 +29,23 @@ describe('CLI Resource Pagination E2E', () => {
     });
   });
 
+  afterAll(async () => {
+    console.log('[afterAll] Cleaning up PTY for resource-pagination');
+    await killPty(pty, 'resource-pagination');
+    console.log('[afterAll] Cleanup complete for resource-pagination');
+  });
+
   afterAll(() => {
-    killPty(pty);
+    // Delay to allow PTY/process cleanup
+    setTimeout(() => {
+      // These are Node.js internal APIs for debugging only
+      // eslint-disable-next-line no-underscore-dangle
+      const handles = (process as any)._getActiveHandles?.() || [];
+      // eslint-disable-next-line no-underscore-dangle
+      const requests = (process as any)._getActiveRequests?.() || [];
+      console.log('[DIAGNOSTIC] Open handles after resource-pagination.test.ts:', handles);
+      console.log('[DIAGNOSTIC] Open requests after resource-pagination.test.ts:', requests);
+    }, 500);
   });
 
   it('shows first page of resources', async () => {

@@ -40,10 +40,29 @@ export async function sendInput(pty: IPty, input: string) {
 }
 
 /**
- * Kill the PTY process (cleanup).
+ * Kill the PTY process (cleanup) and wait for exit.
  */
-export function killPty(pty: IPty) {
+export async function killPty(pty: IPty, logTag?: string) {
+  if (logTag) console.log(`[killPty] Killing PTY for: ${logTag}`);
+  let exited = false;
+  const exitPromise = new Promise((resolve) => {
+    pty.once('exit', () => {
+      exited = true;
+      if (logTag) console.log(`[killPty] PTY exited for: ${logTag}`);
+      resolve(true);
+    });
+  });
   try {
     pty.kill();
-  } catch {}
+  } catch (e) {
+    if (logTag) console.log(`[killPty] Error killing PTY: ${e}`);
+  }
+  // Wait up to 2s for exit
+  await Promise.race([
+    exitPromise,
+    new Promise((resolve) => setTimeout(resolve, 2000)),
+  ]);
+  if (!exited && logTag) console.log(`[killPty] PTY did not exit in time for: ${logTag}`);
+  // Remove all listeners
+  pty.removeAllListeners && pty.removeAllListeners();
 }

@@ -1,0 +1,540 @@
+
+ RUN  v3.1.2 /Users/tmwsiy/code/codex
+
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > insert_char / printable (single line) 4ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > insert_char with a newline should split the line 1ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > insert_str should insert multi‑line strings 0ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > undo / redo history should revert edits 1ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > copy & paste should operate on current selection 1ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > backspace > deletes the character to the *left* of the caret within a line 1ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > backspace > merges with the previous line when invoked at column 0 0ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > backspace > is a no-op at the very beginning of the buffer 0ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > up / down navigation keeps the preferred column > restores horizontal position when moving across shorter lines 0ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > left / right navigation > should treat multi‑code‑unit emoji as a single character 0ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > handleInput should treat  input as backspace 1ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > handleInput should treat key.delete as backspace 0ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > cursor movement & backspace semantics > typing should leave cursor after the last inserted character 0ms
+ ✓ codex-cli/tests/text-buffer.test.ts > TextBuffer – basic editing parity with Rust suite > cursor movement & backspace semantics > arrow‑left moves the caret to *between* characters (highlight next) 0ms
+ ✓ codex-cli/tests/text-buffer-gaps.test.ts > soft‑tab insertion (↹ => 4 spaces) > inserts 4 spaces at caret position when hard‑tab mode is off 13ms
+ ✓ codex-cli/tests/text-buffer-gaps.test.ts > undo / redo – advanced behaviour > typing a word character‑by‑character should undo in one step 3ms
+ ✓ codex-cli/tests/text-buffer-gaps.test.ts > selection – cut/delete > cut() removes the selected range and yanks it into clipboard 1ms
+ ✓ codex-cli/tests/text-buffer-gaps.test.ts > delete_next_word (Ctrl+Delete) > removes everything until the next word boundary 2ms
+ ✓ codex-cli/tests/text-buffer-gaps.test.ts > tab length configuration > inserts the configured number of spaces when tabLen=2 1ms
+ ✓ codex-cli/tests/text-buffer-gaps.test.ts > search / regex navigation > search_forward jumps to the next match 1ms
+ ✓ codex-cli/tests/text-buffer-gaps.test.ts > wordLeft / wordRight – punctuation boundaries > wordLeft stops after punctuation like hyphen (-) 4ms
+ ✓ codex-cli/tests/text-buffer-gaps.test.ts > wordLeft / wordRight – punctuation boundaries > wordRight stops after punctuation like underscore (_) which is not in JS boundary set 2ms
+ ✓ codex-cli/tests/text-buffer-gaps.test.ts > word deletion shortcuts > Ctrl+Backspace deletes the previous word 2ms
+ ✓ codex-cli/tests/text-buffer-gaps.test.ts > paragraph navigation > Jumping forward by paragraph stops after a blank line 1ms
+ ✓ codex-cli/tests/text-buffer-gaps.test.ts > viewport scrolling independent of cursor > scrolls without moving the caret 1ms
+ ✓ codex-cli/tests/responses-chat-completions.test.ts > responsesCreateViaChatCompletions > non-streaming mode > should convert basic user message to chat completions format 118ms
+ ✓ codex-cli/tests/responses-chat-completions.test.ts > responsesCreateViaChatCompletions > non-streaming mode > should handle function calling correctly 41ms
+ ✓ codex-cli/tests/responses-chat-completions.test.ts > responsesCreateViaChatCompletions > non-streaming mode > should preserve conversation history 19ms
+ ✓ codex-cli/tests/responses-chat-completions.test.ts > responsesCreateViaChatCompletions > non-streaming mode > handles tools correctly 21ms
+ ✓ codex-cli/tests/responses-chat-completions.test.ts > responsesCreateViaChatCompletions > streaming mode > should handle streaming responses correctly 5ms
+ ✓ codex-cli/tests/responses-chat-completions.test.ts > responsesCreateViaChatCompletions > streaming mode > handles streaming with tool calls 6ms
+ ✓ codex-cli/tests/config.test.tsx > loads default config if files don't exist 3ms
+ ✓ codex-cli/tests/config.test.tsx > saves and loads config correctly 1ms
+ ✓ codex-cli/tests/config.test.tsx > loads user instructions + project doc when codex.md is present 1ms
+ ✓ codex-cli/tests/config.test.tsx > loads and saves approvalMode correctly 1ms
+ ✓ codex-cli/tests/config.test.tsx > loads and saves providers correctly 2ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > command mode > displays user messages 64ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > command mode > displays shell commands 13ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > command mode > displays file operations 18ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > command mode > displays patch operations 31ms
+ ✓ codex-cli/tests/check-updates.test.ts > renderUpdateCommand() > { manager: 'npm', packageName: 'my-pkg' } → command 2ms
+ ✓ codex-cli/tests/check-updates.test.ts > renderUpdateCommand() > { manager: 'pnpm', packageName: 'my-pkg' } → command 0ms
+ ✓ codex-cli/tests/check-updates.test.ts > renderUpdateCommand() > { manager: 'bun', packageName: 'my-pkg' } → command 0ms
+ ✓ codex-cli/tests/check-updates.test.ts > renderUpdateCommand() > { manager: 'yarn', packageName: 'my-pkg' } → command 0ms
+ ✓ codex-cli/tests/check-updates.test.ts > renderUpdateCommand() > { manager: 'deno', packageName: 'my-pkg' } → command 0ms
+ ✓ codex-cli/tests/check-updates.test.ts > checkForUpdates() > uses global installer when detected, ignoring local agent 29ms
+ ✓ codex-cli/tests/check-updates.test.ts > checkForUpdates() > skips when lastUpdateCheck is still fresh (<frequency) 9ms
+ ✓ codex-cli/tests/check-updates.test.ts > checkForUpdates() > does not print when up-to-date 15ms
+ ✓ codex-cli/tests/check-updates.test.ts > checkForUpdates() > does not print when no manager detected at all 10ms
+ ✓ codex-cli/tests/check-updates.test.ts > checkForUpdates() > renders a box when a newer version exists and no global installer 10ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > command mode > displays mixed content in chronological order 9ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > command mode > truncates long user messages 24ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > file mode > displays files from shell commands 24ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > file mode > displays files from read operations 8ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > file mode > displays files from patches 13ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > keyboard interaction > handles mode switching with 'c' and 'f' keys 29ms
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should connect and invoke the echo tool
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":639760656,"method":"tools/call","params":{"name":"echo","arguments":{"message":"hello MCP"}}}
+
+stderr | codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > error handling > handles empty or invalid items
+The above error occurred in the <HistoryOverlay> component:
+
+    at HistoryOverlay (/Users/tmwsiy/code/codex/codex-cli/src/components/history-overlay.tsx:4:27)
+    at App (file:///Users/tmwsiy/code/codex/node_modules/ink/build/components/App.js:19:9)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, InternalApp.
+
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > keyboard interaction > handles escape key 3ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > keyboard interaction > handles arrow keys for navigation 8ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > keyboard interaction > handles page up/down navigation 13ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > keyboard interaction > handles vim-style navigation 9ms
+ ✓ codex-cli/tests/history-overlay.test.tsx > HistoryOverlay > error handling > handles empty or invalid items 143ms
+ ✓ codex-cli/tests/multiline-history-behavior.test.tsx > TerminalChatInput – history navigation with multiline drafts > should not recall history until caret is on the first line 218ms
+ ✓ codex-cli/tests/terminal-chat-input-multiline.test.tsx > TerminalChatInput multiline functionality > renders the multiline editor component 82ms
+ × codex-cli/tests/terminal-chat-input-multiline.test.tsx > TerminalChatInput multiline functionality > allows multiline input with shift+enter 129ms
+   → expected '╭────────────────────────────────────…' to contain 'first line'
+ × codex-cli/tests/terminal-chat-input-multiline.test.tsx > TerminalChatInput multiline functionality > allows multiline input with shift+enter (modifyOtherKeys=1 format) 71ms
+   → expected '╭────────────────────────────────────…' to contain 'first line'
+ ✓ codex-cli/tests/clear-command.test.tsx > /clear command > invokes clearTerminal and resets context in TerminalChatInput 227ms
+ × codex-cli/tests/multiline-history-behavior.test.tsx > TerminalChatInput – history navigation with multiline drafts > should restore the draft when navigating forward (↓) past the newest history entry 132ms
+   → expected false to be true // Object.is equality
+ ✓ codex-cli/tests/clear-command.test.tsx > /clear command > invokes clearTerminal and resets context in TerminalChatNewInput 80ms
+ ✓ codex-cli/tests/clear-command.test.tsx > clearTerminal > writes escape sequence to stdout 2ms
+ ✓ codex-cli/tests/text-buffer-word.test.ts > TextBuffer – word‑wise navigation & deletion > wordRight moves to end‑of‑line when no further boundary 2ms
+ ✓ codex-cli/tests/text-buffer-word.test.ts > TextBuffer – word‑wise navigation & deletion > Ctrl+Backspace on raw byte deletes previous word 1ms
+ ✓ codex-cli/tests/text-buffer-word.test.ts > TextBuffer – word‑wise navigation & deletion > Option/Alt+Backspace deletes previous word 0ms
+ ✓ codex-cli/tests/text-buffer-word.test.ts > TextBuffer – word‑wise navigation & deletion > Option/Alt+Delete deletes next word 0ms
+ ✓ codex-cli/tests/text-buffer-word.test.ts > TextBuffer – word‑wise navigation & deletion > wordLeft eventually reaches column 0 0ms
+ ✓ codex-cli/tests/text-buffer-word.test.ts > TextBuffer – word‑wise navigation & deletion > wordRight jumps over a delimiter into the next word 0ms
+ ✓ codex-cli/tests/text-buffer-word.test.ts > TextBuffer – word‑wise navigation & deletion > deleteWordLeft after trailing space only deletes the last word, not the whole line 0ms
+ ✓ codex-cli/tests/text-buffer-word.test.ts > TextBuffer – word‑wise navigation & deletion > deleteWordLeft removes the previous word and positions the caret correctly 0ms
+ ✓ codex-cli/tests/text-buffer-word.test.ts > TextBuffer – word‑wise navigation & deletion > deleteWordRight removes the following word 1ms
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx
+[DEBUG] Top-level: ResourcesList file loaded, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+[DEBUG] Before ResourcesList component definition, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stdout | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[PaginatedList] useInput received: n onQuit: [33mtrue[39m
+[waitFor] Frame: "Page 2 not found"
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stdout | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[PaginatedList] useInput received: p onQuit: [33mtrue[39m
+[waitFor] Frame: "Page 1 not found after prev"
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stdout | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard
+[TEST] waiting for unmounted: [33mtrue[39m
+
+ ✓ src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > navigates pages via keyboard 235ms
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stdout | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[PaginatedList] useInput received: n onQuit: [33mtrue[39m
+[waitFor] Frame: "Resource 3 not found"
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/e2e/resource-pagination.test.ts
+innerError Error: Cannot find module '../build/Debug/pty.node'
+Require stack:
+- /Users/tmwsiy/code/codex/node_modules/node-pty/lib/unixTerminal.js
+- /Users/tmwsiy/code/codex/node_modules/node-pty/lib/index.js
+[90m    at Function._resolveFilename (node:internal/modules/cjs/loader:1249:15)[39m
+[90m    at Function._load (node:internal/modules/cjs/loader:1075:27)[39m
+[90m    at TracingChannel.traceSync (node:diagnostics_channel:315:14)[39m
+[90m    at wrapModuleLoad (node:internal/modules/cjs/loader:218:24)[39m
+[90m    at Module.require (node:internal/modules/cjs/loader:1340:12)[39m
+[90m    at require (node:internal/modules/helpers:141:16)[39m
+    at Object.<anonymous> [90m(/Users/tmwsiy/code/codex/[39mnode_modules/[4mnode-pty[24m/src/unixTerminal.ts:20:11[90m)[39m
+[90m    at Module._compile (node:internal/modules/cjs/loader:1546:14)[39m
+[90m    at Object..js (node:internal/modules/cjs/loader:1689:10)[39m
+[90m    at Module.load (node:internal/modules/cjs/loader:1318:32)[39m {
+  code: [32m'MODULE_NOT_FOUND'[39m,
+  requireStack: [
+    [32m'/Users/tmwsiy/code/codex/node_modules/node-pty/lib/unixTerminal.js'[39m,
+    [32m'/Users/tmwsiy/code/codex/node_modules/node-pty/lib/index.js'[39m
+  ]
+}
+
+stdout | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[PaginatedList] useInput received: p onQuit: [33mtrue[39m
+[waitFor] Frame: "Resource 1 not found after prev"
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stdout | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[PaginatedList] useInput received: n onQuit: [33mtrue[39m
+[waitFor] Frame: "Resource 3 not found after next"
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+stderr | src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior
+[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH: [90mundefined[39m
+
+ ✓ src/cli/commands/resources/pagination.e2e.test.tsx > ResourcesList Pagination E2E > shows correct quit behavior 169ms
+ ✓ codex-cli/tests/raw-exec-process-group.test.ts > rawExec – abort kills entire process group > terminates grandchildren spawned via bash 134ms
+(node:42567) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ✓ codex-cli/tests/model-utils.test.ts > Model Utils > openAiModelInfo > model info entries have required properties 21ms
+ ✓ codex-cli/tests/model-utils.test.ts > Model Utils > maxTokensForModel > returns correct token limit for known models 0ms
+ ✓ codex-cli/tests/model-utils.test.ts > Model Utils > maxTokensForModel > handles models with size indicators in their names 0ms
+ ✓ codex-cli/tests/model-utils.test.ts > Model Utils > maxTokensForModel > defaults to 128k for unknown models not in the registry 0ms
+ ✓ codex-cli/tests/model-utils.test.ts > Model Utils > calculateContextPercentRemaining > returns 100% for empty items 1ms
+ ✓ codex-cli/tests/model-utils.test.ts > Model Utils > calculateContextPercentRemaining > calculates percentage correctly for non-empty items 1ms
+ ✓ codex-cli/tests/model-utils.test.ts > Model Utils > calculateContextPercentRemaining > handles models that are not in the registry 0ms
+stdout | codex-cli/tests/multiline-dynamic-width.test.tsx > MultilineTextEditor – dynamic width > keeps the caret visible when the terminal width shrinks
+FRAME AFTER RESIZE:
+hijklmnopqrstuvwxyz
+
+ ✓ codex-cli/tests/multiline-dynamic-width.test.tsx > MultilineTextEditor – dynamic width > keeps the caret visible when the terminal width shrinks 154ms
+ ✓ codex-cli/tests/package-manager-detector.test.ts > detectInstallerByPath() > detects npm when invoked from its global-bin 4ms
+ ✓ codex-cli/tests/package-manager-detector.test.ts > detectInstallerByPath() > detects pnpm when invoked from its global-bin 3ms
+ ✓ codex-cli/tests/package-manager-detector.test.ts > detectInstallerByPath() > detects bun when invoked from its global-bin 1ms
+ ✓ codex-cli/tests/package-manager-detector.test.ts > detectInstallerByPath() > returns undefined if argv[1] is missing 1ms
+ ✓ codex-cli/tests/package-manager-detector.test.ts > detectInstallerByPath() > returns undefined if shim isn't in any manager's bin 1ms
+stdout | src/cli/commands/resources/templates.test.tsx > TemplatesList CLI > paginates to next page
+[PaginatedList] useInput received: n onQuit: [33mtrue[39m
+
+ ✓ codex-cli/tests/typeahead-scroll.test.tsx > TypeaheadOverlay – scrolling capability > passes the full item list to <SelectInput> so users can scroll beyond the visible limit 76ms
+ ✓ codex-cli/tests/model-utils-network-error.test.ts > model-utils – offline resilience > returns true when API key absent (no network available) 41ms
+ ✓ codex-cli/tests/model-utils-network-error.test.ts > model-utils – offline resilience > falls back gracefully when openai.models.list throws a network error 55ms
+ ✓ codex-cli/tests/file-system-suggestions.test.ts > getFileSystemSuggestions > returns empty array for empty prefix 4ms
+ ✓ codex-cli/tests/file-system-suggestions.test.ts > getFileSystemSuggestions > expands ~ to home directory 3ms
+ ✓ codex-cli/tests/file-system-suggestions.test.ts > getFileSystemSuggestions > filters by prefix if not a directory 1ms
+ ✓ codex-cli/tests/file-system-suggestions.test.ts > getFileSystemSuggestions > handles errors gracefully 2ms
+ ✓ codex-cli/tests/file-system-suggestions.test.ts > getFileSystemSuggestions > normalizes relative path 3ms
+ ✓ codex-cli/tests/create-truncating-collector.test.ts > createTruncatingCollector > collects data under limits without truncation 8ms
+ ✓ codex-cli/tests/create-truncating-collector.test.ts > createTruncatingCollector > truncates data over byte limit 1ms
+ ✓ codex-cli/tests/create-truncating-collector.test.ts > createTruncatingCollector > truncates data over line limit 1ms
+ ✓ codex-cli/tests/create-truncating-collector.test.ts > createTruncatingCollector > stops collecting after limit is hit across multiple writes 1ms
+ ✓ codex-cli/tests/create-truncating-collector.test.ts > createTruncatingCollector > handles zero limits 1ms
+ ✓ codex-cli/tests/external-editor.test.ts > TextBuffer – open in external $EDITOR > replaces the buffer with the contents saved by the editor 7ms
+ ✓ codex-cli/tests/project-doc.test.ts > project doc integration > happy path: project doc gets merged into instructions 17ms
+ ✓ codex-cli/tests/project-doc.test.ts > project doc integration > opt-out via flag prevents inclusion 5ms
+ ✓ codex-cli/tests/project-doc.test.ts > project doc integration > file larger than limit gets truncated and warns 15ms
+ ✓ codex-cli/tests/text-buffer-copy-paste.test.ts > TextBuffer – copy/paste multi‑line > copies a multi‑line selection without the trailing newline 3ms
+ ✓ codex-cli/tests/text-buffer-copy-paste.test.ts > TextBuffer – copy/paste multi‑line > pastes the multi‑line clipboard as separate lines (does not merge with following text) 2ms
+ ✓ codex-cli/tests/cancel-exec.test.ts > exec cancellation > kills the child process when the abort signal is triggered 27ms
+ ✓ codex-cli/tests/cancel-exec.test.ts > exec cancellation > allows the process to finish when not aborted 194ms
+stdout | codex-cli/tests/multiline-newline.test.tsx > MultilineTextEditor – inserting new lines > splits the line and renders the new row when <Enter> is pressed
+
+--- RENDERED FRAME ---
+hello
+world
+---------------------
+
+ ✓ codex-cli/tests/multiline-newline.test.tsx > MultilineTextEditor – inserting new lines > splits the line and renders the new row when <Enter> is pressed 113ms
+stdout | codex-cli/tests/requires-shell.test.ts > requiresShell function > should detect pipe in a single argument
+Parsing argument: "grep -n "finally:" some-file | head", tokens: [
+  "grep",
+  "-n",
+  "finally:",
+  "some-file",
+  {
+    "op": "|"
+  },
+  "head"
+]
+
+stdout | codex-cli/tests/requires-shell.test.ts > requiresShell function > should not detect pipe in separate arguments
+Parsing argument: "grep", tokens: [
+  "grep"
+]
+Parsing argument: "-n", tokens: [
+  "-n"
+]
+Parsing argument: "finally:", tokens: [
+  "finally:"
+]
+Parsing argument: "some-file", tokens: [
+  "some-file"
+]
+Parsing argument: "|", tokens: [
+  {
+    "op": "|"
+  }
+]
+Parsing argument: "head", tokens: [
+  "head"
+]
+Result for separate arguments: false
+Result for separate arguments: [33mfalse[39m
+
+stdout | codex-cli/tests/requires-shell.test.ts > requiresShell function > should handle other shell operators
+Parsing argument: "echo hello && echo world", tokens: [
+  "echo",
+  "hello",
+  {
+    "op": "&&"
+  },
+  "echo",
+  "world"
+]
+
+ ✓ codex-cli/tests/requires-shell.test.ts > requiresShell function > should detect pipe in a single argument 5ms
+ ✓ codex-cli/tests/requires-shell.test.ts > requiresShell function > should not detect pipe in separate arguments 5ms
+ ✓ codex-cli/tests/requires-shell.test.ts > requiresShell function > should handle other shell operators 1ms
+stdout | codex-cli/src/utils/agent/mcp-resource-integration.test.ts > MCP Resource Protocol (integration, mcptools mock) > should list resources
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":80006965,"method":"resources/list","params":{}}
+
+stdout | codex-cli/src/utils/agent/mcp-resource-integration.test.ts > MCP Resource Protocol (integration, mcptools mock) > should list resources
+[MCP CLIENT] Received: {"id":80006965,"jsonrpc":"2.0","result":{"resources":[{"description":"Documentation","mimeType":"text/plain","name":"docs://readme","uri":"docs://readme"}]}}
+
+stdout | codex-cli/src/utils/agent/mcp-resource-integration.test.ts > MCP Resource Protocol (integration, mcptools mock) > should read a resource
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":928367469,"method":"resources/list","params":{}}
+
+stdout | codex-cli/src/utils/agent/mcp-resource-integration.test.ts > MCP Resource Protocol (integration, mcptools mock) > should read a resource
+[MCP CLIENT] Received: {"id":928367469,"jsonrpc":"2.0","result":{"resources":[{"description":"Documentation","mimeType":"text/plain","name":"docs://readme","uri":"docs://readme"}]}}
+
+stdout | codex-cli/src/utils/agent/mcp-resource-integration.test.ts > MCP Resource Protocol (integration, mcptools mock) > should read a resource
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":779958158,"method":"resources/read","params":{"uri":"docs://readme"}}
+
+stdout | codex-cli/src/utils/agent/mcp-resource-integration.test.ts > MCP Resource Protocol (integration, mcptools mock) > should read a resource
+[MCP CLIENT] Received: {"id":779958158,"jsonrpc":"2.0","result":{"contents":[{"mimeType":"text/plain","text":"This is a mock resource","uri":"docs://readme"}]}}
+
+stdout | codex-cli/src/utils/agent/mcp-resource-integration.test.ts > MCP Resource Protocol (integration, mcptools mock)
+[MCP CLIENT] Disconnecting MCP process...
+
+ ✓ codex-cli/src/utils/agent/mcp-resource-integration.test.ts > MCP Resource Protocol (integration, mcptools mock) > should list resources 8ms
+ ✓ codex-cli/src/utils/agent/mcp-resource-integration.test.ts > MCP Resource Protocol (integration, mcptools mock) > should read a resource 3ms
+ ✓ codex-cli/src/utils/agent/mcp-resource-integration.test.ts > MCP Resource Protocol (unit, mock) > should parse resource list from mock server 2ms
+ ✓ codex-cli/tests/multiline-external-editor-shortcut.test.tsx > MultilineTextEditor – external editor shortcut > fires openInExternalEditor on Ctrl‑E (single key) 114ms
+ ✓ codex-cli/tests/multiline-external-editor-shortcut.test.tsx > MultilineTextEditor – external editor shortcut > fires openInExternalEditor on Ctrl‑X (single key) 18ms
+ ✓ codex-cli/tests/input-utils.test.ts > createInputItem > returns only text when no images provided 4ms
+ ✓ codex-cli/tests/input-utils.test.ts > createInputItem > includes image content for existing file 14ms
+ ✓ codex-cli/tests/input-utils.test.ts > createInputItem > falls back to missing image text for non-existent file 1ms
+ ✓ codex-cli/tests/slash-commands.test.ts > SLASH_COMMANDS includes expected commands 5ms
+ ✓ codex-cli/tests/slash-commands.test.ts > filters slash commands by prefix 3ms
+ ✓ codex-cli/tests/terminal-chat-completions.test.tsx > TerminalChatCompletions > renders visible completions within displayLimit 82ms
+ ✓ codex-cli/tests/terminal-chat-completions.test.tsx > TerminalChatCompletions > centers the selected completion in the visible list 5ms
+ ✓ codex-cli/tests/terminal-chat-completions.test.tsx > TerminalChatCompletions > adjusts when selectedCompletion is near the end 15ms
+ ✓ codex-cli/tests/fixed-requires-shell.test.ts > fixed requiresShell function > should detect pipe in a single argument 5ms
+ ✓ codex-cli/tests/fixed-requires-shell.test.ts > fixed requiresShell function > should not detect pipe in separate arguments 1ms
+ ✓ codex-cli/tests/fixed-requires-shell.test.ts > fixed requiresShell function > should handle other shell operators in a single argument 0ms
+ ✓ codex-cli/tests/fixed-requires-shell.test.ts > fixed requiresShell function > should not enable shell for normal commands 0ms
+ ✓ codex-cli/tests/parse-apply-patch.test.ts > parseApplyPatch > parses create, update and delete operations in a single patch 4ms
+ ✓ codex-cli/tests/parse-apply-patch.test.ts > parseApplyPatch > returns null for an invalid patch (missing prefix) 1ms
+ ✓ codex-cli/tests/multiline-shift-enter-crlf.test.tsx > MultilineTextEditor – Shift+Enter ( variant) > inserts a newline and does NOT submit when the terminal sends  for Shift+Enter 122ms
+stderr | src/cli/e2e/mcpo-tty.test.ts
+innerError Error: Cannot find module '../build/Debug/pty.node'
+Require stack:
+- /Users/tmwsiy/code/codex/node_modules/node-pty/lib/unixTerminal.js
+- /Users/tmwsiy/code/codex/node_modules/node-pty/lib/index.js
+[90m    at Function._resolveFilename (node:internal/modules/cjs/loader:1249:15)[39m
+[90m    at Function._load (node:internal/modules/cjs/loader:1075:27)[39m
+[90m    at TracingChannel.traceSync (node:diagnostics_channel:315:14)[39m
+[90m    at wrapModuleLoad (node:internal/modules/cjs/loader:218:24)[39m
+[90m    at Module.require (node:internal/modules/cjs/loader:1340:12)[39m
+[90m    at require (node:internal/modules/helpers:141:16)[39m
+    at Object.<anonymous> [90m(/Users/tmwsiy/code/codex/[39mnode_modules/[4mnode-pty[24m/src/unixTerminal.ts:20:11[90m)[39m
+[90m    at Module._compile (node:internal/modules/cjs/loader:1546:14)[39m
+[90m    at Object..js (node:internal/modules/cjs/loader:1689:10)[39m
+[90m    at Module.load (node:internal/modules/cjs/loader:1318:32)[39m {
+  code: [32m'MODULE_NOT_FOUND'[39m,
+  requireStack: [
+    [32m'/Users/tmwsiy/code/codex/node_modules/node-pty/lib/unixTerminal.js'[39m,
+    [32m'/Users/tmwsiy/code/codex/node_modules/node-pty/lib/index.js'[39m
+  ]
+}
+
+ ✓ codex-cli/src/utils/agent/mcp-servers-config.test.ts > MCP servers config > should exist and be readable 5ms
+ ✓ codex-cli/src/utils/agent/mcp-servers-config.test.ts > MCP servers config > should contain a brave server with API key 1ms
+ ✓ codex-cli/src/utils/agent/mcp-servers-config.test.ts > MCP servers config > should not contain obvious placeholder API keys 1ms
+ ✓ codex-cli/src/utils/agent/mcp-client.test.ts > MinimalMcpClient > should instantiate and be disconnected by default 3ms
+ ✓ codex-cli/src/utils/agent/mcp-client.test.ts > MinimalMcpClient > should throw on request and notify (not implemented) 3ms
+ ✓ codex-cli/src/utils/agent/mcp-client.test.ts > MinimalMcpClient > should register notification handlers 44ms
+ ✓ codex-cli/tests/api-key.test.ts > config.setApiKey > overrides the exported OPENAI_API_KEY at runtime 32ms
+ × codex-cli/tests/multiline-shift-enter-mod1.test.tsx > MultilineTextEditor – Shift+Enter with modifyOtherKeys=1 > inserts newline, does NOT submit 174ms
+   → expected '\ndef' to match /abc/
+ ✓ codex-cli/tests/multiline-shift-enter.test.tsx > MultilineTextEditor – Shift+Enter > inserts a newline instead of submitting 97ms
+ ✓ codex-cli/tests/format-command.test.ts > formatCommandForDisplay() > ensure empty string arg appears in output 3ms
+ ✓ codex-cli/tests/format-command.test.ts > formatCommandForDisplay() > ensure special characters are properly escaped 1ms
+ ✓ codex-cli/tests/format-command.test.ts > formatCommandForDisplay() > ensure quotes are properly escaped 0ms
+ ✓ codex-cli/tests/model-info.test.ts > Model Info > supportedModelInfo contains expected models 3ms
+ ✓ codex-cli/tests/model-info.test.ts > Model Info > model info entries have required properties 37ms
+ ✓ codex-cli/tests/text-buffer-crlf.test.ts > TextBuffer – newline normalisation > insertStr should split on  and 
+ sequences 4ms
+stdout | codex-cli/tests/pipe-command.test.ts > shell-quote parse with pipes > should correctly parse a command with a pipe
+Parsed tokens: [
+  "grep",
+  "-n",
+  "finally:",
+  "some-file",
+  {
+    "op": "|"
+  },
+  "head"
+]
+
+ ✓ codex-cli/tests/pipe-command.test.ts > shell-quote parse with pipes > should correctly parse a command with a pipe 14ms
+ ✓ codex-cli/tests/multiline-ctrl-enter-submit.test.tsx > MultilineTextEditor – Ctrl+Enter submits > calls onSubmit when CSI 13;5u is received 117ms
+ ✓ codex-cli/tests/dummy.test.ts > dummy 2ms
+ ✓ codex-cli/tests/terminal-chat-input-compact.test.tsx > TerminalChatInput compact command > shows /compact hint when context is low 123ms
+ ✓ codex-cli/tests/multiline-enter-submit-cr.test.tsx > MultilineTextEditor – Enter submits (CR) > calls onSubmit when  is received 57ms
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for unknown tool name
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":336487195,"method":"tools/call","params":{"name":"nonexistent_tool","arguments":{"foo":"bar"}}}
+
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for unknown tool name
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for malformed arguments
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":935543531,"method":"tools/call","params":{"name":"echo","arguments":{"notMessage":123}}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should connect and invoke the echo tool 5013ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ↓ src/cli/commands/resources/integration.test.ts > MCP CLI integration > lists resources with pagination
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for malformed arguments
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for invalid method
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":560152801,"method":"invalid/method","params":{"name":"echo","arguments":{"message":"test"}}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for unknown tool name 5002ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for invalid method
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should handle resources/list and resources/read
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":308773047,"method":"resources/list","params":{}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for malformed arguments 5002ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should handle resources/list and resources/read
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for events/subscribe (not implemented)
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":168571792,"method":"events/subscribe","params":{"event":"mock_event"}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for invalid method 5002ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for events/subscribe (not implemented)
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP prompts/completions > should complete a prompt successfully
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":757596571,"method":"prompts/complete","params":{"prompt":"Say hello to the world."}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should handle resources/list and resources/read 5002ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP prompts/completions > should complete a prompt successfully
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP prompts/completions > should handle empty prompt
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":804093186,"method":"prompts/complete","params":{"prompt":""}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > should return error for events/subscribe (not implemented) 5001ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP prompts/completions > should handle empty prompt
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP prompts/completions > should error on malformed completion request
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":325140766,"method":"prompts/complete","params":{}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP prompts/completions > should complete a prompt successfully 5001ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP prompts/completions > should error on malformed completion request
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP subscriptions/streaming > should subscribe and receive events
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":787243272,"method":"events/subscribe","params":{"event":"mock_event"}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP prompts/completions > should handle empty prompt 5001ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP subscriptions/streaming > should subscribe and receive events
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP subscriptions/streaming > should error on subscribing to unsupported event
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":125104745,"method":"events/subscribe","params":{"event":"unknown_event"}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP prompts/completions > should error on malformed completion request 5002ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP subscriptions/streaming > should error on subscribing to unsupported event
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP pagination edge cases > should handle empty page
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":294212040,"method":"resources/list","params":{"page":1000,"pageSize":10}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP subscriptions/streaming > should subscribe and receive events 5002ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP pagination edge cases > should handle empty page
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP pagination edge cases > should handle last page with partial results
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":717580788,"method":"resources/list","params":{"page":1,"pageSize":100}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP subscriptions/streaming > should error on subscribing to unsupported event 5002ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP pagination edge cases > should handle last page with partial results
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP pagination edge cases > should handle out-of-bounds/negative page
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":905973817,"method":"resources/list","params":{"page":-1,"pageSize":10}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP pagination edge cases > should handle empty page 5043ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP pagination edge cases > should handle out-of-bounds/negative page
+[MCP CLIENT] Timed out waiting for MCP response
+
+stdout | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP error handling > should error on malformed request
+[MCP CLIENT] Sending: {"jsonrpc":"2.0","id":546447639,"method":"","params":{}}
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP pagination edge cases > should handle last page with partial results 5001ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+stderr | codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP error handling > should error on malformed request
+[MCP CLIENT] Timed out waiting for MCP response
+
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP pagination edge cases > should handle out-of-bounds/negative page 5003ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ × codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP error handling > should error on malformed request 5001ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ✓ codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP error handling > should handle simulated timeout 0ms
+ ✓ codex-cli/src/utils/agent/mcp-stdio-integration.test.ts > MCP stdio integration (local mock server) > MCP error handling > should handle process disconnect 0ms
