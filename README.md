@@ -51,6 +51,7 @@
     - [Nix Flake Development](#nix-flake-development)
 - [Security & Responsible AI](#security--responsible-ai)
 - [License](#license)
+- [Node.js & Test Runner Best Practice](#nodejs--test-runner-best-practice)
 
 <!-- End ToC -->
 
@@ -686,3 +687,21 @@ Have you discovered a vulnerability or have concerns about model output? Please 
 ## License
 
 This repository is licensed under the [Apache-2.0 License](LICENSE).
+
+---
+
+## Node.js & Test Runner Best Practice
+
+**If you see `spawn node ENOENT` or subprocesses can't find Node.js during tests:**
+
+- Always run tests with your active Node version using NVM’s exec command:
+  
+  ```bash
+  nvm exec <version> npm test
+  # or for Vitest directly:
+  nvm exec <version> npx vitest run
+  ```
+- Do NOT symlink node globally or hard-code PATH in scripts. This avoids version mismatches and future confusion.
+- See memory-bank/progress.md for full troubleshooting notes and rationale.
+
+---

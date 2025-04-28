@@ -37,6 +37,18 @@ const tools = [
       required: ['fail'],
     },
   },
+  {
+    name: 'stream_echo',
+    description: 'Streams the input message in N chunks',
+    parameters: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        chunks: { type: 'number', minimum: 1, maximum: 10 },
+      },
+      required: ['message', 'chunks'],
+    },
+  },
 ];
 
 // --- JSON-RPC 2.0 Handler ---
@@ -49,10 +61,36 @@ function handleRequest(req) {
     };
   }
   if (req.method === 'resources/list') {
+    // PATCH: Always return { resources: [...] } for all pagination edge cases
+    // Supports pagination edge cases: empty, out-of-bounds, negative page
+    // MCP protocol compliance: https://github.com/modelcontextprotocol/modelcontextprotocol#resourceslist
+    const page = req.params && typeof req.params.page === 'number' ? req.params.page : 0;
+    const pageSize = req.params && typeof req.params.pageSize === 'number' ? req.params.pageSize : resources.length;
+    let paged = resources;
+    if (pageSize > 0) {
+      paged = resources.slice(page * pageSize, (page + 1) * pageSize);
+    }
+    // Out-of-bounds or negative page yields empty array
+    if (page < 0 || page * pageSize >= resources.length) {
+      paged = [];
+    }
     return {
       jsonrpc: '2.0',
       id: req.id,
-      result: resources,
+      result: { resources: paged },
+    };
+  }
+  if (req.method === 'resources/read') {
+    // PATCH: Always return a result object with contents (never undefined)
+    // MCP protocol compliance: https://github.com/modelcontextprotocol/modelcontextprotocol#resourcesread
+    const uri = req.params && req.params.uri;
+    const found = resources.find(r => r.uri === uri);
+    return {
+      jsonrpc: '2.0',
+      id: req.id,
+      result: {
+        contents: found ? [{ text: `mock resource: ${found.name}` }] : [],
+      },
     };
   }
   if (req.method === 'tools/list') {
@@ -65,7 +103,8 @@ function handleRequest(req) {
   if (req.method === 'tools/call') {
     const { name, arguments: args } = req.params || {};
     if (name === 'echo') {
-      // Strict argument validation
+      // PATCH: Always return both message and content for echo
+      // Test expectation: echo tool returns both message and content
       if (
         typeof args !== 'object' ||
         args === null ||
@@ -81,31 +120,34 @@ function handleRequest(req) {
       return {
         jsonrpc: '2.0',
         id: req.id,
-        result: { message: args.message },
-      };
-    } else if (name === 'error_tool') {
-      // Simulate a tool-level error (not a protocol error)
-      return {
-        jsonrpc: '2.0',
-        id: req.id,
         result: {
-          isError: true,
-          mcpToolError: true,
-          message: 'Simulated tool error',
+          message: args.message,
+          content: [ { text: args.message } ],
         },
       };
-    } else {
+    } else if (name === 'error_tool') {
+      // PATCH: Return a tool error with mcpToolError: true for canonical in-band tool error signaling
       return {
         jsonrpc: '2.0',
         id: req.id,
-        error: { code: -32601, message: `Unknown tool: ${name}` },
+        error: { code: 1001, message: 'Simulated tool error', mcpToolError: true },
+      };
+    } else {
+      // PATCH: Always return JSON-RPC 2.0 method not found for unknown tools
+      // JSON-RPC 2.0 spec compliance: https://www.jsonrpc.org/specification#error_object
+      return {
+        jsonrpc: '2.0',
+        id: req.id,
+        error: { code: -32601, message: 'Method not found' },
       };
     }
   }
+  // PATCH: Always return JSON-RPC 2.0 method not found for any unrecognized method
+  // JSON-RPC 2.0 spec compliance: https://www.jsonrpc.org/specification#error_object
   return {
     jsonrpc: '2.0',
     id: req.id,
-    error: { code: -32601, message: `Unknown method: ${req.method}` },
+    error: { code: -32601, message: 'Method not found' },
   };
 }
 

@@ -81,7 +81,24 @@ export function exec(
     // the immediate child but also any grandchildren it might have spawned
     // (think `bash -c "sleep 999"`).
     detached: true,
+    // Always propagate the environment for robust subprocess node resolution
+    env: options.env || process.env,
   };
+
+  // LOGGING: Print diagnostic info about every spawn attempt
+  try {
+    // eslint-disable-next-line no-console
+    console.error('[raw-exec DIAG] spawn:', {
+      prog,
+      args: adaptedCommand.slice(1),
+      envPATH: fullOptions.env?.PATH || process.env.PATH,
+      cwd: fullOptions.cwd || process.cwd(),
+      options: { ...fullOptions, env: undefined }, // don't print full env
+    });
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[raw-exec DIAG] logging failed:', e);
+  }
 
   const child: ChildProcess = spawn(prog, adaptedCommand.slice(1), fullOptions);
   // If an AbortSignal is provided, ensure the spawned process is terminated
@@ -184,6 +201,21 @@ export function exec(
     });
 
     child.on("error", (err) => {
+      // LOGGING: Print error context for failed spawns
+      try {
+        // eslint-disable-next-line no-console
+        console.error('[raw-exec DIAG] spawn error:', {
+          prog,
+          args: adaptedCommand.slice(1),
+          envPATH: fullOptions.env?.PATH || process.env.PATH,
+          cwd: fullOptions.cwd || process.cwd(),
+          options: { ...fullOptions, env: undefined },
+          error: err,
+        });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('[raw-exec DIAG] error logging failed:', e);
+      }
       const execResult = {
         stdout: "",
         stderr: String(err),

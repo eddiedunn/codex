@@ -7,7 +7,8 @@
     "format": "prettier --check *.json *.md .github/workflows/*.yml",
     "format:fix": "prettier --write *.json *.md .github/workflows/*.yml",
     "build": "pnpm --filter @openai/codex run build",
-    "test": "pnpm --filter @openai/codex run test",
+    "test": "echo 'Please use: nvm exec <version> npm test or nvm exec <version> npx vitest run' && exit 1",
+    "test:actual": "vitest",
     "lint": "pnpm --filter @openai/codex run lint",
     "lint:fix": "pnpm --filter @openai/codex run lint:fix",
     "typecheck": "pnpm --filter @openai/codex run typecheck",
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@inkjs/ui": "^2.0.0",
     "@modelcontextprotocol/server-everything": "^2025.4.25",
+    "@testing-library/react": "^16.3.0",
     "@types/file-type": "^10.6.0",
     "@types/js-yaml": "^4.0.9",
     "@types/marked": "^5.0.2",

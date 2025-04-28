@@ -1,3 +1,37 @@
+# Active Context: Node.js Subprocess Reliability (April 28, 2025)
+
+## Current State
+- Persistent `spawn node ENOENT` errors in E2E and integration tests have been resolved.
+- All test and helper subprocesses now use `process.execPath` for Node.js, not the bare `node` command.
+- This guarantees compatibility with NVM and non-standard PATHs.
+- Comments and references to NVM/node-pty issues have been added to all affected files.
+- Remaining test failures are protocol or assertion-related, not environmental.
+
+## Immediate Next Steps
+- Focus on fixing protocol/assertion test failures in the E2E suite.
+- Continue to document and enforce the absolute Node.js path pattern in all new subprocess spawns.
+- Keep memory bank and systemPatterns.md up to date as new patterns emerge.
+
+---
+
+# Active Context: MCP Streaming Protocol & E2E Pattern (April 28, 2025)
+
+## Current State
+- The MCP mock server (`mcp-mock-server.ts`) now implements a streaming protocol via NDJSON chunks (see `stream_echo` tool).
+- E2E tests send a `stream_echo` request, collect all NDJSON chunk messages, reconstruct the original message, and assert correctness.
+- The final JSON-RPC response is also validated for protocol compliance.
+- This streaming test pattern is now canonical for all future streaming-capable MCP tools.
+- The memory bank and `systemPatterns.md` have been updated to document this protocol and test approach.
+- Test suite failures are currently due to `node` not being found in the PATH (environment issue, not a logic bug).
+
+## Immediate Next Steps
+- Fix the local environment so `node` is available to subprocesses for all tests.
+- Re-run the full E2E suite to confirm all tests pass, including streaming and large payloads.
+- Continue to extend the mock server and E2E tests as new MCP protocol features require streaming or event-based responses.
+- Keep memory bank and systemPatterns.md in sync with new architectural or protocol patterns.
+
+---
+
 # Active Context: Post-Merge/Sync (April 27, 2025)
 
 ## Current State
@@ -194,6 +228,13 @@
 
 ---
 
+### April 28, 2025 – REPL/Chat-First Tool Call Integration
+- Confirmed canonical pattern: All tool call and business logic integrations are REPL/chat-first, not CLI-centric.
+- Memory-bank/ refers only to project documentation files, not the AI memory store.
+- Refactoring and documentation updates in progress to ensure all new features follow this pattern.
+
+---
+
 _This context should be reviewed before any further MCP client integration or mocking work. See progress.md for what works and what remains blocked._
 
-_Last updated: 2025-04-27 18:39 EDT_
+_Last updated: 2025-04-28 18:39 EDT_

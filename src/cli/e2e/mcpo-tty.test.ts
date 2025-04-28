@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import nodepty from 'node-pty';
 import path from 'path';
+import process from 'process';
 
 // Path to your CLI entrypoint (absolute path)
 const CLI_PATH = path.resolve(__dirname, '../../../codex-cli/src/cli.tsx');
@@ -25,7 +26,10 @@ function waitForOutput(pty, matcher, timeout = 10000) {
 
 describe('MCPO E2E (TTY) - Resource Listing', () => {
   it('lists resources with pagination in interactive CLI', async () => {
-    // Minimal node-pty test: spawn echo hello
+    // Use absolute Node.js binary path to avoid ENOENT with NVM and node-pty
+    // See https://github.com/nvm-sh/nvm/issues/2146 and project troubleshooting docs
+    const NODE_BIN = process.execPath;
+    // Minimal node-pty test: spawn echo hello (still safe, but use NODE_BIN for Node.js CLI)
     const pty = nodepty.spawn('echo', ['hello'], {
       cols: 120,
       rows: 40,

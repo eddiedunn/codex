@@ -72,3 +72,31 @@
 - All MCP integration tests pass with Vitest as of 2025-04-23.
 
 ---
+
+## MCP Integration Test Streaming Pattern (April 2025)
+
+- The canonical MCP mock server supports streaming via NDJSON:
+  - The `stream_echo` tool emits multiple JSON objects (chunks) to stdout, each on its own line, followed by a final JSON-RPC response.
+  - E2E tests listen for these chunked outputs, reconstruct the original message, and assert correctness.
+- This enables robust, protocol-compliant testing of streaming tools and future MCP protocol extensions.
+- All new streaming-capable tools should follow this emission pattern for compatibility.
+
+### Test Example
+- The E2E suite sends a `stream_echo` request with a message and chunk count.
+- It collects all NDJSON chunk messages, verifies correct chunk count and message reconstruction, and checks for a valid final JSON-RPC response.
+
+### Reference
+- Documented in `memory-bank/progress.md` and the memory bank.
+- Last updated: 2025-04-28
+
+---
+
+## REPL vs CLI Command Pattern (April 2025)
+
+- **Canonical Pattern:** Codex is REPL/chat-first. All tool call integrations and business logic must be designed for the interactive prompt/chat interface, not traditional terminal CLI commands.
+- **Business logic** for listing resources, templates, etc., must be implemented as reusable functions/services, not tied to terminal output or CLI handler specifics.
+- **CLI commands (if present)** should delegate to these shared services, but the REPL/chat tool call is canonical.
+- **Output** must be structured (JSON), paginated, and UI-friendly for all tool calls.
+- **This pattern supersedes** any prior CLI-centric assumptions for tool call integration.
+
+_Last updated: 2025-04-28_

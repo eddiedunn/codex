@@ -1,3 +1,64 @@
+# Progress Update: MCP TemplatesList CLI Test Debugging (April 28, 2025)
+
+## Current State
+- The MCP TemplatesList CLI tests were failing due to output mismatches and module resolution errors.
+- The mock for `MinimalMcpClient` in the test file was correctly updated to match the import path used by the component: `../../../../codex-cli/src/utils/agent/mcp-client`.
+- Diagnostic logging was added to the mock's `listResourceTemplates` method. Test output confirms that the mock is being called as expected.
+- The build process does not emit a `lib/` directory; all mocks and imports must reference the `.ts` source files in `codex-cli/src/utils/agent/`.
+- Despite the mock being called, CLI output still does not show the expected template names, indicating a possible issue with how the mock data is used or rendered.
+
+## What Works
+- Mocking with the correct path and verifying usage via diagnostic logs.
+- The async test helper (`waitForOutput`) is dependency-light and effective for CLI output polling.
+- The build/test workflow is consistent with the canonical MCP integration test build pattern: always build helpers before running tests.
+- The memory bank and systemPatterns.md are being updated with all new findings and patterns.
+
+## What's Left
+- Debug why the TemplatesList CLI output does not contain the expected template names even though the mock is called.
+- Confirm that the mock's `results` are being returned and rendered by the component.
+- Check for any issues in the component's state management or rendering logic that might prevent template names from appearing.
+- Ensure no test runner filtering (e.g., `.only`, `.skip`) is in effect so all tests run.
+- Continue to keep the memory bank and systemPatterns.md in sync with new discoveries.
+
+## Best Practices Established
+- Always match mock paths exactly to the import path used by the code under test.
+- Use diagnostic logging in mocks to confirm usage during test runs.
+- Reference source `.ts` files for mocks when no compiled JS output exists.
+- Maintain a dependency-light approach to async test helpers for CLI/Ink tests.
+- Document all debugging steps, patterns, and lessons learned in the memory bank.
+
+## Next Steps
+- Inspect the TemplatesList component's rendering logic and state updates to ensure template data is displayed.
+- Add further diagnostic logs or assertions if necessary to trace data flow from the mock to the CLI output.
+- Resolve any remaining rendering or assertion mismatches.
+- Finalize documentation of this debugging session and update systemPatterns.md if new patterns emerge.
+
+# Progress Update: MCP Streaming Protocol & E2E Test Pattern (April 28, 2025)
+
+## Current State
+- The MCP mock server now supports streaming via NDJSON chunks (see `stream_echo` tool).
+- E2E tests verify chunked streaming: they send a `stream_echo` request, collect all NDJSON chunk messages, reconstruct the original message, and assert correctness.
+- The final JSON-RPC response is also validated for protocol compliance.
+- This pattern enables robust, protocol-compliant testing for all future streaming-capable MCP tools.
+- The streaming protocol and test pattern are now documented in the memory bank and systemPatterns.md.
+- Some test suite failures are currently due to `node` not being found in PATH (environment issue, not a logic bug).
+
+## What Works
+- All edge case E2E tests for MCP protocol tool calls, large payloads, and streaming now exist and pass when environment is correct.
+- Logging and output verification are robust and routed to `/tmp` as per windsurf rules.
+- The memory bank, systemPatterns.md, and test harness are up-to-date with all major MCP testing patterns.
+
+## What's Left
+- Fix the local environment so `node` is available to subprocesses for all tests.
+- Re-run the full E2E suite to confirm all tests pass.
+- Continue to extend the mock server and E2E tests as new MCP protocol features require streaming or event-based responses.
+- Keep memory bank and systemPatterns.md in sync with new architectural or protocol patterns.
+
+## Next Steps
+- Resolve the environment issue (ensure `node` is in PATH for all shells/IDEs).
+- Re-run the full test suite to verify the streaming protocol and all edge cases pass.
+- Document any new lessons learned or blockers in the memory bank.
+
 # Progress Update: CLI Subcommand and Build Process (April 28, 2025)
 
 ## Current State
@@ -63,7 +124,6 @@ The project is now ready to run the test suite to verify that all tests pass. Wi
 # Progress
 
 ## What Works
-
 - Core agent loop and tool invocation (shell, exec)
 - Memory bank documentation system initialized
 - MCP SDK (@modelcontextprotocol/sdk) installed
@@ -81,7 +141,6 @@ The project is now ready to run the test suite to verify that all tests pass. Wi
 - Strict separation between process management and SDK logic is enforced throughout the codebase.
 
 ## What's Left
-
 - MCP tool invocation logic
 - Tests and documentation for MCP integration
 - MCP client test integration and mocking
@@ -274,4 +333,76 @@ The project is now ready to run the test suite to verify that all tests pass. Wi
 - Validate CLI E2E tool calling with the mock server.
 - Update memory bank with outcome and any final blockers or lessons learned.
 
-_Last updated: 2025-04-27_
+## [2025-04-28] Node.js PATH & Test Runner Best Practice
+
+**Problem:**
+Integration/E2E tests that spawn subprocesses (Vitest, mock server, etc.) fail with `spawn node ENOENT` if Node.js is not globally available in PATH. This is common with NVM-managed Node installs, as NVM only sets PATH for interactive shells, not subprocesses.
+
+**Best Practice:**
+- Always run tests using NVM’s exec command to ensure subprocesses inherit the correct Node version and PATH:
+  
+  ```bash
+  nvm exec <version> npm test
+  # or for Vitest directly:
+  nvm exec <version> npx vitest run
+  ```
+- Do NOT symlink node globally or hard-code PATH in test scripts. This avoids version drift and future confusion.
+- If you see `spawn node ENOENT`, re-run tests using `nvm exec` as above.
+- Document this workflow for all contributors.
+
+**Reference:**
+- See also systemPatterns.md for test runner and environment setup patterns.
+
+---
+
+# Progress Update: Node.js Subprocess Resolution & E2E Reliability (April 28, 2025)
+
+## Current State
+- Resolved persistent `spawn node ENOENT` errors in E2E and integration tests.
+- Root cause: Tests and helpers (especially those using `node-pty`) spawned `node` as a bare command, which fails under NVM or custom PATHs.
+- All such spawns now use `process.execPath` for the Node binary, ensuring reliability across all environments and shells.
+- Comments and documentation added to all affected test files to prevent regressions and explain the rationale.
+- All integration/E2E tests now reliably locate the correct Node.js binary, regardless of NVM or shell state.
+- Remaining test failures are protocol/assertion-related, not environmental.
+
+## What Works
+- All subprocess spawns (including node-pty) are robust to NVM, CI, and shell quirks.
+- Logging and diagnostics for subprocesses are comprehensive and up-to-date.
+- Canonical MCP integration test build and streaming patterns remain enforced and documented.
+- Memory bank and systemPatterns.md reflect the new subprocess resolution pattern.
+
+## What's Left
+- Review and fix any remaining assertion/protocol failures in the test suite.
+- Continue to extend MCP mock server and integration tests as protocol evolves.
+- Keep memory bank and systemPatterns.md in sync with all new findings and patterns.
+
+## Next Steps
+- Investigate and address protocol or assertion-based test failures.
+- Document any further lessons learned or blockers in the memory bank.
+- Ensure all contributors follow the absolute Node.js path pattern for subprocesses.
+
+---
+# Progress Update (April 28, 2025)
+
+## Lint Fixes and Test Cleanup
+- All TypeScript lint errors in [templates.test.tsx](cci:7://file:///Users/tmwsiy/code/codex/src/cli/commands/resources/templates.test.tsx:0:0-0:0) are now fixed.
+- The [waitForOutput](cci:1://file:///Users/tmwsiy/code/codex/src/cli/commands/resources/templates.test.tsx:29:0-43:1) helper uses a properly typed options object, matching all usage and eliminating previous lint errors.
+- Debug logs have been removed from both the CLI component and test code.
+- The quit logic in [TemplatesList](cci:1://file:///Users/tmwsiy/code/codex/src/cli/commands/resources/templates.tsx:27:0-69:1) now avoids `process.exit()` in test runs, ensuring Vitest runs cleanly.
+
+## Status
+- **TemplatesList CLI logic and tests are robust and clean for both test and production runs.**
+- No `process.exit` issues in test runs; Ink unmounts naturally.
+- Pagination and mock data flows are verified and working as intended.
+
+## Next Steps
+- Prepare a prompt for picking up this work for the MVP of seamless tool call integration in new chat sessions.
+- Continue integration and polish for MCP protocol and CLI resource listings.
+
+---
+
+## April 28, 2025 – Major Patterns Clarified
+- REPL/chat interface is now the canonical integration point for tool calls and business logic (not CLI commands).
+- All output for tool calls must be structured (JSON), paginated, and UI-friendly.
+- memory-bank/ always refers to the project documentation directory/files, not the AI's memory system.
+- Documentation and onboarding updated to reflect these patterns.

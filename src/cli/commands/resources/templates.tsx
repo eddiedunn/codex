@@ -45,6 +45,12 @@ export default function TemplatesList() {
     setCanQuit(true);
   }, [data.items]);
 
+  // Diagnostic log: print template items just before render (cleanup)
+  // console.log('[DEBUG][TemplatesList] items:', data.items.map(i => i.name));
+
+  // Detect test environment to avoid process.exit()
+  const isTest = typeof process !== 'undefined' && process.env.VITEST;
+
   return (
     <PaginatedList
       state={data}
@@ -56,7 +62,8 @@ export default function TemplatesList() {
         setData(d => ({ ...d, cursor: undefined }));
       }}
       onQuit={() => {
-        if (canQuit) process.exit(0);
+        if (canQuit && !isTest) process.exit(0);
+        // In test, just allow Ink to unmount naturally
       }}
     />
   );
