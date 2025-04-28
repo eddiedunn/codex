@@ -19,7 +19,6 @@
   "devDependencies": {
     "@inkjs/ui": "^2.0.0",
     "@modelcontextprotocol/server-everything": "^2025.4.25",
-    "@types/boxen": "^2.1.0",
     "@types/file-type": "^10.6.0",
     "@types/js-yaml": "^4.0.9",
     "@types/marked": "^5.0.2",

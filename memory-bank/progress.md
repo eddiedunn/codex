@@ -1,3 +1,29 @@
+# Progress Update: CLI Subcommand and Build Process (April 28, 2025)
+
+## Current State
+- Confirmed: CLI subcommand system is built using the `meow` package (not "mina").
+- All CLI argument parsing and subcommand logic are handled in the CLI entrypoint, with no evidence of "mina" in the codebase.
+- The build process for the CLI and all integration test helpers is enforced before tests and deployment, as per the root `pretest` script and canonical MCP integration test build pattern.
+- Integration and E2E tests are run against compiled JS artifacts, never raw TypeScript, preventing stale or missing CLI binaries.
+- Memory bank and documentation are up to date with all major MCP and CLI architecture decisions.
+
+## What Works
+- CLI subcommands are robustly handled via `meow`.
+- MCP mock server and integration test helpers are always precompiled before tests run, ensuring reliability.
+- The build pipeline guarantees a fresh CLI artifact for both local and CI workflows.
+- No evidence of test or deploy workflows bypassing the build step.
+
+## What's Left
+- Continue to iterate on CLI subcommand features as needed (e.g., new commands, improved UX).
+- Expand integration/E2E test coverage for CLI commands and MCP protocol features.
+- Monitor for any workflow regressions (e.g., build step accidentally skipped in new scripts or CI configs).
+- Continue documenting new patterns and decisions in the memory bank as the project evolves.
+
+## Next Steps
+- Review and, if needed, update CI/deployment configs to ensure the build step is always present before test/deploy.
+- Extend CLI and MCP integration tests for new features or edge cases as they arise.
+- Keep memory bank and systemPatterns.md in sync with all new architectural or testing patterns.
+
 # Progress Update: Post-Merge/Sync (April 27, 2025)
 
 ## Current State

@@ -39,12 +39,21 @@ describe('MCP CLI integration (multi-server)', () => {
     // Launch HTTP MCP server
     console.log('[TEST] Spawning HTTP MCP server...');
     // Print environment variables for diagnostics
-    console.log('[TEST] process.env snapshot:', JSON.stringify(process.env, null, 2));
+    const customEnv = { ...process.env, NODE_ENV: 'production' };
+    delete customEnv.VITEST;
+    delete customEnv.VITEST_MODE;
+    console.log('[TEST] customEnv snapshot:', JSON.stringify(customEnv, null, 2));
     const httpProc = spawn('npx -y @modelcontextprotocol/server-everything --port ' + HTTP_PORT, {
-      stdio: 'inherit',
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: path.resolve(__dirname, '../../../../'),
       shell: true,
-      env: process.env,
+      env: customEnv,
+    });
+    httpProc.stdout.on('data', (data) => {
+      process.stdout.write(`[HTTP MCP SERVER STDOUT] ${data}`);
+    });
+    httpProc.stderr.on('data', (data) => {
+      process.stderr.write(`[HTTP MCP SERVER STDERR] ${data}`);
     });
     console.log(`[TEST] HTTP MCP server PID: ${httpProc.pid}`);
     httpProc.on('spawn', () => {
