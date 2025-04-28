@@ -53,7 +53,9 @@ const tools = [
 
 // --- JSON-RPC 2.0 Handler ---
 function handleRequest(req) {
+  console.error('[MOCK SERVER DEBUG] Handling request:', req);
   if (!req || typeof req !== 'object' || req.jsonrpc !== '2.0' || !req.method) {
+    console.error('[MOCK SERVER DEBUG] Invalid request:', req);
     return {
       jsonrpc: '2.0',
       id: req && req.id !== undefined ? req.id : null,
@@ -67,6 +69,7 @@ function handleRequest(req) {
     const page = req.params && typeof req.params.page === 'number' ? req.params.page : 0;
     const pageSize = req.params && typeof req.params.pageSize === 'number' ? req.params.pageSize : resources.length;
     if (pageSize <= 0) {
+      console.error('[MOCK SERVER DEBUG] Invalid page size:', pageSize);
       return {
         jsonrpc: '2.0',
         id: req.id,
@@ -81,6 +84,7 @@ function handleRequest(req) {
     if (page < 0 || page * pageSize >= resources.length) {
       paged = [];
     }
+    console.error('[MOCK SERVER DEBUG] Returning resources:', paged);
     return {
       jsonrpc: '2.0',
       id: req.id,
@@ -91,6 +95,7 @@ function handleRequest(req) {
     const page = req.params && typeof req.params.page === 'number' ? req.params.page : 0;
     const pageSize = req.params && typeof req.params.pageSize === 'number' ? req.params.pageSize : resources.length;
     if (pageSize <= 0) {
+      console.error('[MOCK SERVER DEBUG] Invalid page size:', pageSize);
       return {
         jsonrpc: '2.0',
         id: req.id,
@@ -105,6 +110,7 @@ function handleRequest(req) {
     if (page < 0 || page * pageSize >= resources.length) {
       paged = [];
     }
+    console.error('[MOCK SERVER DEBUG] Returning templates:', paged);
     return {
       jsonrpc: '2.0',
       id: req.id,
@@ -116,6 +122,7 @@ function handleRequest(req) {
     // MCP protocol compliance: https://github.com/modelcontextprotocol/modelcontextprotocol#resourcesread
     const uri = req.params && req.params.uri;
     const found = resources.find(r => r.uri === uri);
+    console.error('[MOCK SERVER DEBUG] Returning resource:', found);
     return {
       jsonrpc: '2.0',
       id: req.id,
@@ -125,6 +132,7 @@ function handleRequest(req) {
     };
   }
   if (req.method === 'tools/list') {
+    console.error('[MOCK SERVER DEBUG] Returning tools:', tools);
     return {
       jsonrpc: '2.0',
       id: req.id,
@@ -132,49 +140,124 @@ function handleRequest(req) {
     };
   }
   if (req.method === 'tools/call') {
-    const { name, arguments: args } = req.params || {};
-    if (name === 'echo') {
-      // PATCH: Always return both message and content for echo
-      // Test expectation: echo tool returns both message and content
+    // STRICT MCP PROTOCOL: require 'name' and 'arguments' in params
+    let toolName, args;
+    if (!req.params || typeof req.params !== 'object') {
+      process.stdout.write(JSON.stringify({
+        jsonrpc: '2.0',
+        id: req.id ?? null,
+        error: { code: -32600, message: "Invalid Request: missing 'params' object" }
+      }) + '\n');
+      return;
+    }
+    toolName = req.params.name;
+    args = req.params.arguments;
+    if (!toolName) {
+      process.stdout.write(JSON.stringify({
+        jsonrpc: '2.0',
+        id: req.id ?? null,
+        error: { code: -32600, message: "Invalid Request: missing 'name' in params" }
+      }) + '\n');
+      return;
+    }
+    if (typeof args === 'undefined') {
+      process.stdout.write(JSON.stringify({
+        jsonrpc: '2.0',
+        id: req.id ?? null,
+        error: { code: -32602, message: "Invalid arguments: missing 'arguments' in params" }
+      }) + '\n');
+      return;
+    }
+    console.error('[MOCK SERVER DEBUG] Handling tool call:', toolName, args);
+    const knownTools = ['echo', 'error_tool', 'stream_echo'];
+    if (!knownTools.includes(toolName)) {
+      console.error('[MOCK SERVER DEBUG] Tool not found:', toolName);
+      process.stdout.write(JSON.stringify({
+        jsonrpc: '2.0',
+        id: req.id ?? null,
+        error: { code: -32601, message: `Tool not found: ${toolName}` }
+      }) + '\n');
+      return;
+    }
+    // --- Argument validation and tool logic ---
+    if (toolName === 'echo') {
       if (
         typeof args !== 'object' ||
         args === null ||
         Array.isArray(args) ||
         typeof args.message !== 'string'
       ) {
+        console.error('[MOCK SERVER DEBUG] Invalid arguments for echo:', args);
+        process.stdout.write(JSON.stringify({ error: true, code: -32602, message: 'Invalid arguments: expected { message: string }' }) + '\n');
         return {
           jsonrpc: '2.0',
           id: req.id,
           error: { code: -32602, message: 'Invalid arguments: expected { message: string }' },
         };
       }
+      console.error('[MOCK SERVER DEBUG] Returning echo result:', args.message);
       return {
         jsonrpc: '2.0',
         id: req.id,
-        result: {
-          message: args.message,
-          content: [ { text: args.message } ],
-        },
+        result: { message: args.message, content: [{ text: args.message }] },
       };
-    } else if (name === 'error_tool') {
-      // PATCH: Return a tool error with mcpToolError: true for canonical in-band tool error signaling
+    } else if (toolName === 'error_tool') {
+      console.error('[MOCK SERVER DEBUG] Returning error tool error');
       return {
         jsonrpc: '2.0',
         id: req.id,
-        error: { code: 1001, message: 'Simulated tool error', mcpToolError: true },
+        error: { code: -32001, message: 'Simulated tool error', mcpToolError: true },
       };
-    } else {
-      // PATCH: Always return JSON-RPC 2.0 method not found for unknown tools
-      // JSON-RPC 2.0 spec compliance: https://www.jsonrpc.org/specification#error_object
-      return {
-        jsonrpc: '2.0',
-        id: req.id,
-        error: { code: -32601, message: 'Method not found' },
-      };
+    } else if (toolName === 'stream_echo') {
+      if (
+        typeof args !== 'object' ||
+        args === null ||
+        Array.isArray(args) ||
+        typeof args.message !== 'string' ||
+        typeof args.chunks !== 'number' ||
+        args.chunks < 1 || args.chunks > 10
+      ) {
+        console.error('[MOCK SERVER DEBUG] Invalid arguments for stream_echo:', args);
+        process.stdout.write(JSON.stringify({ error: true, code: -32602, message: 'Invalid arguments: expected { message: string, chunks: number (1-10) }' }) + '\n');
+        return {
+          jsonrpc: '2.0',
+          id: req.id,
+          error: { code: -32602, message: 'Invalid arguments: expected { message: string, chunks: number (1-10) }' },
+        };
+      }
+      const totalLen = args.message.length;
+      const chunkSize = Math.ceil(totalLen / args.chunks) || 1;
+      function emitChunk(i) {
+        if (i >= args.chunks) {
+          process.stdout.write('', () => {
+            setImmediate(() => {
+              console.error('[MOCK SERVER DEBUG] Emitting final JSON-RPC response for stream_echo');
+              resolve({
+                jsonrpc: '2.0',
+                id: req.id,
+                result: {
+                  message: args.message,
+                  chunks: args.chunks,
+                },
+              });
+            });
+          });
+          return;
+        }
+        const chunkMsg = args.message.slice(i * chunkSize, (i + 1) * chunkSize);
+        console.error('[MOCK SERVER DEBUG] Emitting NDJSON chunk:', { chunk: i, text: chunkMsg });
+        process.stdout.write(JSON.stringify({ chunk: i, text: chunkMsg }) + '\n');
+        setTimeout(() => emitChunk(i + 1), 30);
+      }
+      console.error('[MOCK SERVER DEBUG] Handling stream_echo with', args);
+      return new Promise(resolve => {
+        emitChunk(0);
+      });
     }
   }
   // PATCH: Always return JSON-RPC 2.0 method not found for any unrecognized method
   // JSON-RPC 2.0 spec compliance: https://www.jsonrpc.org/specification#error_object
+  console.error('[MOCK SERVER DEBUG] Method not found:', req.method);
   return {
     jsonrpc: '2.0',
     id: req.id,
@@ -189,9 +272,18 @@ rl.on('line', (line) => {
   try {
     req = JSON.parse(line);
   } catch (e) {
+    console.error('[MOCK SERVER DEBUG] Parse error:', e);
     process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }) + '\n');
     return;
   }
   const res = handleRequest(req);
-  process.stdout.write(JSON.stringify(res) + '\n');
+  if (res instanceof Promise) {
+    res.then((result) => {
+      console.error('[MOCK SERVER DEBUG] Emitting response:', result);
+      process.stdout.write(JSON.stringify(result) + '\n');
+    });
+  } else {
+    console.error('[MOCK SERVER DEBUG] Emitting response:', res);
+    process.stdout.write(JSON.stringify(res) + '\n');
+  }
 });

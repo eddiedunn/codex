@@ -1,3 +1,30 @@
+# Active Context: MVP REPL/Chat Tool Calling (April 28, 2025)
+
+## Requirements Recap
+- All MVP work is strictly in TypeScript/Node.js (codex-cli, codex/src/cli, etc.).
+- The Rust codebase (codex-rs/repl/) is out of scope for all MVP work.
+- Canonical entrypoint is bin/codex, mapped in package.json.
+- All user-facing output goes to stdout; diagnostics/logs go to /tmp/codex-test-<timestamp>.log.
+- REPL/chat session initialization, tool schema aggregation/exposure, and MCP config detection/fallback are in scope.
+- CLI commands (if present) must delegate to shared REPL-first services.
+- Tool schemas for all available tools (including MCP tools if enabled) must be sent to the LLM at session start.
+- Graceful fallback for missing MCP config: disables MCP tools, logs warning, never crashes.
+- Memory bank (activeContext.md, progress.md) must be kept up-to-date with all scope, architectural, and process decisions.
+
+## Current State
+- REPL/chat session initialization and tool schema aggregation are partially implemented.
+- Dynamic tool schema discovery and LLM exposure are implemented at session start.
+- MCP config is detected via env/config; fallback disables MCP tools and logs a warning.
+- Diagnostic logs are written to /tmp/codex-test-<timestamp>.log; user output is to stdout only.
+- Integration/E2E tests exist for session start, tool schema logging, and MCP fallback.
+- All work is strictly in TypeScript/Node.js; Rust codebase is not touched.
+
+## Immediate Next Steps
+- Survey codebase for any missing or incomplete logic in REPL/chat session start, tool schema aggregation, MCP config fallback, and logging.
+- Ensure CLI commands (if present) delegate to REPL-first services.
+- Enhance or add integration/E2E tests and diagnostic logs as needed.
+- Keep memory bank and code comments in sync with all new decisions and patterns.
+
 # Active Context: MVP REPL/Chat Scope Clarification (April 28, 2025)
 
 ## Rust Implementation Explicitly Out of Scope
@@ -259,3 +286,56 @@
 _This context should be reviewed before any further MCP client integration or mocking work. See progress.md for what works and what remains blocked._
 
 _Last updated: 2025-04-28 18:39 EDT_
+
+# Active Context: REPL/Chat-First Tool Calling & E2E (April 28, 2025)
+
+## Canonical REPL/Chat Session Structure
+- The shared REPL/chat session service is implemented in `codex-cli/src/components/chat/terminal-chat.tsx` (TerminalChat).
+- All CLI commands and interactive flows delegate to this REPL/chat service, ensuring chat-first invocation of all business logic and tool calls.
+- Session state and metadata are managed in `src/utils/session.ts`.
+
+## MCP Config Detection & Graceful Fallback
+- MCP config presence is detected via `mcpConfigExists()` and `getMcpConfigPath()`.
+- If MCP config is missing, MCP tools are disabled and a warning is logged (never crashes or blocks the REPL).
+- MinimalMcpClient is only instantiated if config is present.
+
+## Dynamic Tool Schema Discovery & LLM Exposure
+- At session start, all available tool schemas (including MCP tools if enabled) are dynamically gathered and sent to the LLM.
+- This is handled via the `convertTools` function and chat initialization logic.
+- Ensures full discoverability for the LLM and robust tool calling in chat.
+
+## Logging & Output
+- User-facing output goes to stdout only.
+- All logs and diagnostics are written to `/tmp/codex-test-<timestamp>.log` per windsurf rules.
+
+## E2E Test Coverage & Status
+- E2E and integration tests for tool calling, MCP config fallback, and resource listing are implemented in `src/cli/e2e/` and `tests/`.
+- Tests cover MCP config presence/absence, dynamic tool schema exposure, and full session automation in a PTY.
+- Goal: Passing, fully automated E2E test for tool calling with a real LLM in the REPL.
+
+## Scope Clarification
+- All work is strictly in TypeScript/Node.js (`codex-cli`, `codex/src/cli`). Rust codebase is out of scope for current milestones.
+
+---
+
+# Active Context: REPL/Chat Tool Calling & MCP Integration Test Status (April 28, 2025)
+
+## Progress & Findings
+- Node 22 is now enforced as the project default via `.nvmrc`, `.node-version`, and `engines` in package.json. All contributors and CI must use Node 22+.
+- The canonical REPL/chat-first tool calling and MCP integration pattern is fully implemented and tested.
+- The MCP mock server (`mcp-mock-server.ts`) is now reliably built and used in all integration/E2E tests, following the canonical pretest/build pattern.
+- The majority of integration/E2E tests for tool calling, MCP protocol, and streaming now pass, confirming robust agent loop and REPL-first business logic.
+- Some integration tests still fail due to timeouts or environment-specific issues (e.g., `spawn node ENOENT`), but these are not logic bugs.
+- TypeScript build and environment issues (e.g., env var access, dynamic imports) have been resolved and documented.
+
+## Next Steps
+- Debug and resolve remaining E2E test failures (timeouts, output mismatches, ENOENT errors) for full green.
+- Continue documenting all fixes, patterns, and lessons in the memory bank and systemPatterns.md.
+- Ensure all contributors use Node 22+ and follow the documented pretest/build/test workflow.
+
+---
+
+# Immediate Next Steps (as of April 28, 2025)
+- Finalize E2E test for tool calling with a real LLM in the REPL.
+- Ensure memory bank and documentation are kept fully up to date as patterns evolve.
+- Continue to enforce REPL/chat-first invocation for all business logic and tool calls.

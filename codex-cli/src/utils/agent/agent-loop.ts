@@ -29,6 +29,8 @@ import {
 import { handleExecCommand } from "./handle-exec-command.js";
 import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
+import { existsSync } from "fs";
+import { join, homedir } from "os";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -347,9 +349,6 @@ export class AgentLoop {
     );
 
     // --- MCP graceful fallback: only enable MCP tools if config exists ---
-    import { existsSync } from "fs";
-    import { join, homedir } from "os";
-
     function getMcpConfigPath() {
       // Adjust path if different in your project
       return join(homedir(), ".codex", "mcp_server.json");

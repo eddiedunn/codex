@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { render } from 'ink-testing-library';
+import { act } from 'react-dom/test-utils';
 import TemplatesList from './templates';
 
 // Mock MinimalMcpClient and dependency injection
@@ -58,7 +59,16 @@ describe('TemplatesList CLI', () => {
 
   it('paginates to next page', async () => {
     const { lastFrame, stdin } = render(<TemplatesList />);
-    stdin.write('n');
+    stdin.setRawMode(true);
+    await act(async () => {
+      stdin.write(Buffer.from([110])); // ASCII for 'n'
+      stdin.write('n\n'); // Also try 'n' followed by newline
+      stdin.emit('data', Buffer.from('n'));
+    });
+    await new Promise(res => setTimeout(res, 25)); // Give event loop time for input
+    // Log output after 'n'
+    // eslint-disable-next-line no-console
+    console.log('[TEST] After n, lastFrame:', lastFrame());
     await waitForOutput(() => {
       expect(lastFrame()).toContain('Template #11');
       expect(lastFrame()).toContain('Template #20');
@@ -89,5 +99,54 @@ describe('TemplatesList CLI', () => {
     await waitForOutput(() => {
       expect(lastFrame()).toContain('MCP error');
     });
+  });
+});
+
+describe('Templates CLI Pagination E2E', () => {
+  it('shows first and second page of templates on user input', async () => {
+    const { spawn } = await import('child_process');
+    // Run the CLI entrypoint via ts-node
+    const cli = spawn(
+      'npx',
+      ['ts-node', 'src/cli/commands/resources/templates.tsx'],
+      { stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+
+    let stdout = '';
+    let stderr = '';
+
+    cli.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    cli.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    // Wait for the first page to render
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Simulate user pressing 'n' for next page
+    cli.stdin.write('n\n');
+
+    // Wait for the second page to render
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // End the process
+    cli.stdin.end();
+    cli.kill();
+
+    // Wait for process exit
+    await new Promise((resolve) => cli.on('exit', resolve));
+
+    // Assert first page content
+    expect(stdout).toMatch(/Template #1/);
+    expect(stdout).toMatch(/Template #10/);
+
+    // Assert second page content (after 'n')
+    expect(stdout).toMatch(/Template #11/);
+    expect(stdout).toMatch(/Template #20/);
+
+    // Optionally: check for absence of errors
+    expect(stderr).toBe('');
   });
 });

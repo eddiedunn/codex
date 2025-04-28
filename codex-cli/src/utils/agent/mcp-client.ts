@@ -6,6 +6,7 @@ import type { ChildProcessWithoutNullStreams } from "child_process";
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import * as readline from "readline";
+import { log } from "../logger/log.js";
 
 export type McpTransportType = "stdio" | "http";
 
@@ -103,11 +104,11 @@ export class MinimalMcpClient implements McpClient {
       method,
       params: params || {},
     };
-    console.log('[MCP CLIENT] Sending request:', request);
+    log(`[MCP CLIENT] Sending request: ${JSON.stringify(request)}`);
     try {
       this.process.stdin.write(JSON.stringify(request) + '\n');
     } catch (err) {
-      console.error('[MCP CLIENT] Failed to write to MCP process stdin:', err);
+      log(`[MCP CLIENT] Failed to write to MCP process stdin: ${err}`);
       throw new Error('Failed to send request to MCP process');
     }
 
@@ -117,15 +118,15 @@ export class MinimalMcpClient implements McpClient {
         crlfDelay: Infinity,
       });
       const onLine = (line: string) => {
-        console.log('[MCP CLIENT] Received line:', line);
+        log(`[MCP CLIENT] Received line: ${line}`);
         try {
           const msg = JSON.parse(line);
-          console.log('[MCP CLIENT] Parsed response:', msg);
+          log(`[MCP CLIENT] Parsed response: ${JSON.stringify(msg)}`);
           if (msg.id === id) {
             rl.removeListener("line", onLine);
             rl.close();
             if (msg.error) {
-              console.error('[MCP CLIENT] MCP error response:', msg.error);
+              log(`[MCP CLIENT] MCP error response: ${JSON.stringify(msg.error)}`);
               // If the error has a data field (in-band tool error), throw that object
               if (msg.error.data && typeof msg.error.data === 'object') {
                 reject(msg.error.data);
@@ -137,14 +138,14 @@ export class MinimalMcpClient implements McpClient {
             }
           }
         } catch (err) {
-          console.error('[MCP CLIENT] Failed to parse JSON:', err, 'Line:', line);
+          log(`[MCP CLIENT] Failed to parse JSON: ${err} Line: ${line}`);
         }
       };
       rl.on("line", onLine);
       setTimeout(() => {
         rl.removeListener("line", onLine);
         rl.close();
-        console.error('[MCP CLIENT] Timed out waiting for MCP response');
+        log('[MCP CLIENT] Timed out waiting for MCP response');
         reject(new Error("Timed out waiting for MCP response"));
       }, 8000);
     });
@@ -229,27 +230,26 @@ export class MinimalMcpClient implements McpClient {
   async callTool(name: string, args?: Record<string, unknown>): Promise<any> {
     if (!name) throw new Error('Tool name is required');
     try {
-      const params = { name, arguments: args || {} };
-      const result = await this.request<any>('tools/call', params);
-      // Per MCP spec: tool errors are in-band, protocol errors throw
-      if (result && result.isError) {
-        // In-band tool error (e.g., tool logic failed)
+      const result = await this.request<any>('tools/call', { name, arguments: args || {} });
+      if (result && (result.isError || result.error)) {
         const errMsg = result.error || result.message || 'Unknown tool error';
         const error = new Error(`Tool error: ${errMsg}`);
         (error as any).mcpToolError = true;
         (error as any).toolResult = result;
+        log(`[MCP CLIENT] Tool-level error: ${errMsg}`);
         throw error;
       }
       return result;
     } catch (err: any) {
-      // If this is a tool-level error (already has mcpToolError), throw as-is
       if (err && err.mcpToolError) {
+        log(`[MCP CLIENT] Rethrowing tool-level error: ${err.message}`);
         throw err;
       }
-      // Protocol-level error (e.g., tool not found, server error)
       if (err && err.message) {
+        log(`[MCP CLIENT] Protocol-level error: ${err.message}`);
         throw new Error(`MCP callTool protocol error: ${err.message}`);
       }
+      log(`[MCP CLIENT] Unknown error in callTool: ${JSON.stringify(err)}`);
       throw err;
     }
   }

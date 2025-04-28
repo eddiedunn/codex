@@ -22,6 +22,7 @@ describe('E2E: Chat session tool call via MCP', () => {
     if (mockServer) {
       mockServer.process.kill();
       mockServer.closeLog();
+      await mockServer.waitForLogFinish();
       mockServer = null;
     }
   });
@@ -38,17 +39,43 @@ describe('E2E: Chat session tool call via MCP', () => {
   });
 
   it('handles tool call error from chat session', async () => {
-    // Simulate a tool call with an invalid tool name
-    const toolName = 'nonexistent_tool';
-    const args = { foo: 'bar' };
-    let error;
-    try {
-      await mcpClient.callTool(toolName, args);
-    } catch (err: unknown) {
-      error = err;
-    }
-    expect(error).toBeDefined();
-    expect(error instanceof Error ? error.message : error).toMatch(/not found|error/i);
+    if (!mockServer) throw new Error('mockServer is not initialized');
+    // Send invalid arguments to stream_echo to trigger protocol error
+    const req = JSON.stringify({
+      method: 'tools/call',
+      params: { name: 'stream_echo', arguments: { message: 123, chunks: 'bad' } } // invalid args
+    }) + '\n';
+    let errorMsg = '';
+    await new Promise(resolve => {
+      function onData(data: Buffer) {
+        const lines = data.toString().split('\n').filter(Boolean);
+        for (const line of lines) {
+          try {
+            const obj = JSON.parse(line);
+            // DEBUG: Print every parsed NDJSON object
+            console.log('[TEST DEBUG] Parsed NDJSON:', obj);
+            if (obj.error || (obj.jsonrpc === '2.0' && obj.error)) {
+              errorMsg += line + '\n';
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+        if (errorMsg.length > 0) {
+          mockServer!.process.stdout.off('data', onData);
+          resolve(null);
+        }
+      }
+      mockServer!.process.stdout.on('data', onData);
+      mockServer.process.stdin.write(req);
+      setTimeout(() => {
+        mockServer!.process.stdout.off('data', onData);
+        resolve(null);
+      }, 1000);
+    });
+    expect(errorMsg).toMatch(/argument|invalid|type|error/i);
+    const logContent = mockServer.getLogBuffer();
+    expect(logContent).toMatch(/argument|invalid|type|error/i);
   });
 
   it('logs output to /tmp', async () => {
@@ -63,7 +90,7 @@ describe('E2E: Chat session tool call via MCP', () => {
         fileExists = mockServer.logExists;
         if (fileExists) {
           fileSize = mockServer.logSize;
-          logContent = mockServer.getLogContent();
+          logContent = mockServer.getLogBuffer();
           if (logContent && /MOCK SERVER/.test(logContent)) break;
         }
       } catch (e: unknown) {
@@ -102,7 +129,7 @@ describe('E2E: Chat session tool call via MCP', () => {
     });
     expect(errorMsg).toMatch(/invalid|json|parse/i);
     // Optionally, check log file for error
-    const logContent = mockServer.getLogContent();
+    const logContent = mockServer.getLogBuffer();
     expect(logContent).toMatch(/invalid|json|parse/i);
   });
 
@@ -120,7 +147,7 @@ describe('E2E: Chat session tool call via MCP', () => {
       setTimeout(resolve, 500);
     });
     expect(errorMsg).toMatch(/missing|field|invalid/i);
-    const logContent = mockServer.getLogContent();
+    const logContent = mockServer.getLogBuffer();
     expect(logContent).toMatch(/missing|field|invalid/i);
   });
 
@@ -130,9 +157,7 @@ describe('E2E: Chat session tool call via MCP', () => {
     // Simulate a request with an unsupported protocol version
     const badVersionRequest = JSON.stringify({
       method: 'tools/call',
-      tool: 'echo',
-      arguments: { message: 'hello' },
-      protocol_version: '999.0.0' // obviously unsupported
+      params: { name: 'echo', arguments: { message: 'hello' }, protocol_version: '999.0.0' } // obviously unsupported
     }) + '\n';
     mockServer.process.stdin.write(badVersionRequest);
     let errorMsg = '';
@@ -144,52 +169,115 @@ describe('E2E: Chat session tool call via MCP', () => {
       setTimeout(resolve, 500);
     });
     expect(errorMsg).toMatch(/protocol|version|unsupported|invalid/i);
-    const logContent = mockServer.getLogContent();
+    const logContent = mockServer.getLogBuffer();
     expect(logContent).toMatch(/protocol|version|unsupported|invalid/i);
   });
 
   // --- EDGE CASE: Tool-not-found and Argument Errors ---
-  it('returns error for non-existent tool', async () => {
+  it('returns error for invalid arguments to real tool', async () => {
     if (!mockServer) throw new Error('mockServer is not initialized');
+    // Send invalid args to a real tool (e.g., echo)
     const req = JSON.stringify({
       method: 'tools/call',
-      tool: 'not_a_real_tool',
-      arguments: { foo: 'bar' }
+      params: { name: 'echo', arguments: { message: 123 } } // invalid: should be string
     }) + '\n';
-    mockServer.process.stdin.write(req);
     let errorMsg = '';
     await new Promise(resolve => {
-      mockServer.process.stderr.once('data', (data: Buffer) => {
-        errorMsg = data.toString();
+      function onData(data: Buffer) {
+        const lines = data.toString().split('\n').filter(Boolean);
+        for (const line of lines) {
+          try {
+            const obj = JSON.parse(line);
+            console.log('[TEST DEBUG] Parsed NDJSON:', obj);
+            if (obj.error || (obj.jsonrpc === '2.0' && obj.error)) {
+              errorMsg += line + '\n';
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+        if (errorMsg.length > 0) {
+          mockServer!.process.stdout.off('data', onData);
+          resolve(null);
+        }
+      }
+      mockServer!.process.stdout.on('data', onData);
+      mockServer.process.stdin.write(req);
+      setTimeout(() => {
+        mockServer!.process.stdout.off('data', onData);
         resolve(null);
-      });
-      setTimeout(resolve, 500);
+      }, 1000);
     });
-    expect(errorMsg).toMatch(/tool.*not found|unknown|no such tool/i);
-    const logContent = mockServer.getLogContent();
+    expect(errorMsg).toMatch(/argument|invalid|type|error/i);
+    const logContent = mockServer.getLogBuffer();
+    expect(logContent).toMatch(/argument|invalid|type|error/i);
+  });
+
+  it('handles tool call to unknown tool', async () => {
+    if (!mockServer) throw new Error('mockServer is not initialized');
+    // Send call to unknown tool
+    const req = JSON.stringify({
+      method: 'tools/call',
+      params: { name: 'not_a_real_tool', arguments: {} }
+    }) + '\n';
+    let errorJson = undefined;
+    await new Promise(resolve => {
+      mockServer.process.stdout.on('data', data => {
+        const lines = data.toString().split('\n').filter(Boolean);
+        for (const line of lines) {
+          try {
+            const msg = JSON.parse(line);
+            if (msg.error) {
+              errorJson = msg.error;
+              resolve();
+            }
+          } catch {}
+        }
+      });
+      mockServer.process.stdin.write(req);
+      setTimeout(resolve, 1000);
+    });
+    expect(errorJson).toBeDefined();
+    expect(errorJson.code).toBe(-32601);
+    expect(errorJson.message).toMatch(/tool not found/i);
+    const logContent = mockServer.getLogBuffer();
     expect(logContent).toMatch(/tool.*not found|unknown|no such tool/i);
   });
 
-  it('returns error for invalid arguments to real tool', async () => {
+  it('handles large payloads without truncation or crash', async () => {
     if (!mockServer) throw new Error('mockServer is not initialized');
-    // For "echo" tool, pass a number instead of expected object
+    const message = 'x'.repeat(1024 * 256); // 256KB
+    const chunks = 8;
     const req = JSON.stringify({
       method: 'tools/call',
-      tool: 'echo',
-      arguments: 12345 // invalid type
+      params: { name: 'stream_echo', arguments: { message, chunks } }
     }) + '\n';
-    mockServer.process.stdin.write(req);
-    let errorMsg = '';
+    let allChunks = [];
+    let finalResp = null;
     await new Promise(resolve => {
-      mockServer.process.stderr.once('data', (data: Buffer) => {
-        errorMsg = data.toString();
-        resolve(null);
+      mockServer.process.stdout.on('data', data => {
+        const lines = data.toString().split('\n').filter(Boolean);
+        for (const line of lines) {
+          try {
+            const msg = JSON.parse(line);
+            if (msg.chunk !== undefined) {
+              allChunks[msg.chunk] = msg.text;
+            } else if (msg.jsonrpc) {
+              finalResp = msg;
+              resolve();
+            }
+          } catch {}
+        }
       });
-      setTimeout(resolve, 500);
+      mockServer.process.stdin.write(req);
+      setTimeout(resolve, 2000);
     });
-    expect(errorMsg).toMatch(/argument|invalid|type|error/i);
-    const logContent = mockServer.getLogContent();
-    expect(logContent).toMatch(/argument|invalid|type|error/i);
+    const output = allChunks.join('');
+    expect(output.length).toBeGreaterThan(1024 * 128); // At least half the payload
+    expect(output).toMatch(/x{100,}/); // Look for a long run of 'x'
+    expect(finalResp).toBeDefined();
+    const logContent = mockServer.getLogBuffer();
+    expect(logContent.length).toBeGreaterThan(0);
   });
 
   // --- EDGE CASE: Simulated Server Disconnects/Errors ---
@@ -198,8 +286,7 @@ describe('E2E: Chat session tool call via MCP', () => {
     // Start a request, then kill the server before response
     const req = JSON.stringify({
       method: 'tools/call',
-      tool: 'echo',
-      arguments: { message: 'disconnect test' }
+      params: { name: 'echo', arguments: { message: 'disconnect test' } }
     }) + '\n';
     mockServer.process.stdin.write(req);
     // Immediately kill the server
@@ -208,7 +295,7 @@ describe('E2E: Chat session tool call via MCP', () => {
     await new Promise(resolve => {
       setTimeout(() => {
         // After short delay, check if error/log output is present
-        errorMsg = mockServer.getLogContent();
+        errorMsg = mockServer.getLogBuffer();
         resolve(null);
       }, 500);
     });
@@ -220,45 +307,40 @@ describe('E2E: Chat session tool call via MCP', () => {
     // Send a request designed to make the server throw (assuming "throw_error" tool is implemented in mock)
     const req = JSON.stringify({
       method: 'tools/call',
-      tool: 'throw_error',
-      arguments: { message: 'fail' }
+      params: { name: 'throw_error', arguments: { message: 'fail' } }
     }) + '\n';
-    mockServer.process.stdin.write(req);
     let errorMsg = '';
     await new Promise(resolve => {
-      mockServer.process.stderr.once('data', (data: Buffer) => {
-        errorMsg = data.toString();
+      function onData(data: Buffer) {
+        const lines = data.toString().split('\n').filter(Boolean);
+        for (const line of lines) {
+          try {
+            const obj = JSON.parse(line);
+            // DEBUG: Print every parsed NDJSON object
+            console.log('[TEST DEBUG] Parsed NDJSON:', obj);
+            if (obj.error || (obj.jsonrpc === '2.0' && obj.error)) {
+              errorMsg += line + '\n';
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+        if (errorMsg.length > 0) {
+          mockServer!.process.stdout.off('data', onData);
+          resolve(null);
+        }
+      }
+      // Attach handler BEFORE sending the request
+      mockServer!.process.stdout.on('data', onData);
+      mockServer.process.stdin.write(req);
+      setTimeout(() => {
+        mockServer!.process.stdout.off('data', onData);
         resolve(null);
-      });
-      setTimeout(resolve, 500);
+      }, 1000);
     });
     expect(errorMsg).toMatch(/error|exception|fail|threw/i);
-    const logContent = mockServer.getLogContent();
+    const logContent = mockServer.getLogBuffer();
     expect(logContent).toMatch(/error|exception|fail|threw/i);
-  });
-
-  // --- EDGE CASE: Large Payloads ---
-  it('handles large payloads without truncation or crash', async () => {
-    if (!mockServer) throw new Error('mockServer is not initialized');
-    const largeString = 'x'.repeat(1024 * 256); // 256 KB string
-    const req = JSON.stringify({
-      method: 'tools/call',
-      tool: 'echo',
-      arguments: { message: largeString }
-    }) + '\n';
-    mockServer.process.stdin.write(req);
-    let output = '';
-    await new Promise(resolve => {
-      mockServer.process.stdout.once('data', (data: Buffer) => {
-        output = data.toString();
-        resolve(null);
-      });
-      setTimeout(resolve, 1000);
-    });
-    expect(output.length).toBeGreaterThan(1024 * 128); // At least half the payload
-    expect(output).toMatch(/x{100,}/); // Look for a long run of 'x'
-    const logContent = mockServer.getLogContent();
-    expect(logContent.length).toBeGreaterThan(0);
   });
 
   // --- EDGE CASE: Streaming (NDJSON) ---
@@ -268,45 +350,32 @@ describe('E2E: Chat session tool call via MCP', () => {
     const chunks = 4;
     const req = JSON.stringify({
       method: 'tools/call',
-      tool: 'stream_echo',
-      arguments: { message, chunks }
+      params: { name: 'stream_echo', arguments: { message, chunks } }
     }) + '\n';
-    mockServer.process.stdin.write(req);
-    const receivedChunks: string[] = [];
-    let finalResponse = '';
-    let done = false;
-    // Listen for NDJSON chunks and final response
+    let receivedChunks: string[] = [];
+    let finalResponse = null;
     await new Promise(resolve => {
-      function onData(data: Buffer) {
+      mockServer.process.stdout.on('data', data => {
         const lines = data.toString().split('\n').filter(Boolean);
         for (const line of lines) {
           try {
-            const obj = JSON.parse(line);
-            if (typeof obj.chunk === 'string') {
-              receivedChunks.push(obj.chunk);
-            } else if (obj.jsonrpc === '2.0' && obj.result) {
-              finalResponse = line;
-              done = true;
+            const msg = JSON.parse(line);
+            if (msg.chunk !== undefined) {
+              receivedChunks[msg.chunk] = msg.text;
+            } else if (msg.jsonrpc) {
+              finalResponse = msg;
+              resolve();
             }
-          } catch {
-            // Ignore parse errors
-          }
+          } catch {}
         }
-        if (done || receivedChunks.length >= chunks) {
-          mockServer!.process.stdout.off('data', onData);
-          resolve(null);
-        }
-      }
-      mockServer!.process.stdout.on('data', onData);
-      setTimeout(() => {
-        mockServer!.process.stdout.off('data', onData);
-        resolve(null);
-      }, 2000);
+      });
+      mockServer.process.stdin.write(req);
+      setTimeout(resolve, 2000);
     });
-    expect(receivedChunks.length).toBe(chunks);
+    expect(receivedChunks.filter(Boolean).length).toBe(chunks);
     expect(receivedChunks.join('')).toBe(message);
-    expect(finalResponse).toMatch(/jsonrpc/);
-    const logContent = mockServer.getLogContent();
+    expect(finalResponse).toBeDefined();
+    const logContent = mockServer.getLogBuffer();
     expect(logContent.length).toBeGreaterThan(0);
   });
 

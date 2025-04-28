@@ -16,7 +16,9 @@ export function PaginatedList<T>({ state, renderItem, onNext, onPrev, onQuit }: 
   }
   useInput((input) => {
     // eslint-disable-next-line no-console
-    console.log('[PaginatedList] useInput received:', input, 'onQuit:', !!onQuit);
+    console.log('[PaginatedList] useInput received:', input, {
+      hasNext: state.hasNext, hasPrev: state.hasPrev, page: state.page, items: state.items.length
+    });
     if (input === 'n' && state.hasNext) onNext();
     if (input === 'p' && state.hasPrev) onPrev();
     if ((input === 'q' || input === 'x') && onQuit) onQuit(); // support 'x' for test quit
