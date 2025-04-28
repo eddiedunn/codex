@@ -100,3 +100,25 @@
 - **This pattern supersedes** any prior CLI-centric assumptions for tool call integration.
 
 _Last updated: 2025-04-28_
+
+---
+
+## MVP REPL Tool Call Pattern (April 2025)
+
+- All tool call and business logic must be REPL/chat-first: invoked via prompt, output structured for UI, not plain text.
+- CLI commands (if present) must delegate to shared REPL-first services.
+- Graceful fallback for missing MCP config: disables MCP tools, logs warning, never crashes.
+- Tool schemas for all available tools (including MCP tools if enabled) must always be sent to the LLM at session start.
+- E2E and integration tests must always verify tool call behavior in the REPL interface.
+- Canonical prompt for new sessions: "You are starting a new Codex REPL session. Your goal is to reach MVP for robust tool calling in the chat interface. All tool calls and business logic must work via the REPL, with graceful fallback for missing MCP config and full tool schema exposure to the LLM. Do not lose context from previous sessions; refer to the memory bank for all patterns and requirements."
+- Next: Continue updating productContext.md and document any new patterns in systemPatterns.md as MVP approaches.
+
+## CLI Entrypoint & Output Pattern (2025-04)
+
+- The canonical CLI entrypoint is `bin/codex`, mapped in `package.json` with the `"bin"` field (`"codex": "./bin/codex"`).
+- The entrypoint script uses a Node.js shebang (`#!/usr/bin/env node`) and imports the main CLI logic (e.g., from `src/repl/index.js`).
+- All user-facing output is sent to stdout (the terminal), never to log files.
+- Diagnostic logs for debugging/testing use ephemeral files in `/tmp/` (e.g., `/tmp/codex-test-<timestamp>.log`) per windsurf rules.
+- This pattern matches the main branch of openai/codex and is now canonical for this project.
+
+---

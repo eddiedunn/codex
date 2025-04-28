@@ -66,6 +66,13 @@ function handleRequest(req) {
     // MCP protocol compliance: https://github.com/modelcontextprotocol/modelcontextprotocol#resourceslist
     const page = req.params && typeof req.params.page === 'number' ? req.params.page : 0;
     const pageSize = req.params && typeof req.params.pageSize === 'number' ? req.params.pageSize : resources.length;
+    if (pageSize <= 0) {
+      return {
+        jsonrpc: '2.0',
+        id: req.id,
+        error: { code: -32602, message: 'Invalid page size' },
+      };
+    }
     let paged = resources;
     if (pageSize > 0) {
       paged = resources.slice(page * pageSize, (page + 1) * pageSize);
@@ -78,6 +85,30 @@ function handleRequest(req) {
       jsonrpc: '2.0',
       id: req.id,
       result: { resources: paged },
+    };
+  }
+  if (req.method === 'resources/templates') {
+    const page = req.params && typeof req.params.page === 'number' ? req.params.page : 0;
+    const pageSize = req.params && typeof req.params.pageSize === 'number' ? req.params.pageSize : resources.length;
+    if (pageSize <= 0) {
+      return {
+        jsonrpc: '2.0',
+        id: req.id,
+        error: { code: -32602, message: 'Invalid page size' },
+      };
+    }
+    // Use mock templates (reuse resources for simplicity)
+    let paged = resources;
+    if (pageSize > 0) {
+      paged = resources.slice(page * pageSize, (page + 1) * pageSize);
+    }
+    if (page < 0 || page * pageSize >= resources.length) {
+      paged = [];
+    }
+    return {
+      jsonrpc: '2.0',
+      id: req.id,
+      result: { templates: paged },
     };
   }
   if (req.method === 'resources/read') {

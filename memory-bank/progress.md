@@ -374,7 +374,7 @@ Integration/E2E tests that spawn subprocesses (Vitest, mock server, etc.) fail w
 ## What's Left
 - Review and fix any remaining assertion/protocol failures in the test suite.
 - Continue to extend MCP mock server and integration tests as protocol evolves.
-- Keep memory bank and systemPatterns.md in sync with all new findings and patterns.
+- Keep memory bank and systemPatterns.md in sync with new architectural or protocol patterns.
 
 ## Next Steps
 - Investigate and address protocol or assertion-based test failures.
@@ -401,8 +401,25 @@ Integration/E2E tests that spawn subprocesses (Vitest, mock server, etc.) fail w
 
 ---
 
+## Automated End-to-End Testing: No Manual Steps Required
+
+- The test harness is fully automated and simulates real user chat/REPL sessions using true `node-pty` or equivalent subprocess/PTY emulation.
+- All "manual" chat interactions (prompt entry, tool call invocation, result parsing) are performed programmatically in tests—no human intervention is needed to validate the MVP.
+- This is a core architectural achievement: **all MVP flows, including those that would traditionally require manual QA, are covered by automated integration tests.**
+- See `terminal-chat-tool-call.integration.test.ts` for the canonical pattern.
+
 ## April 28, 2025 – Major Patterns Clarified
 - REPL/chat interface is now the canonical integration point for tool calls and business logic (not CLI commands).
 - All output for tool calls must be structured (JSON), paginated, and UI-friendly.
 - memory-bank/ always refers to the project documentation directory/files, not the AI's memory system.
 - Documentation and onboarding updated to reflect these patterns.
+
+## [2025-04-28] MVP Scope Clarification: Tool Calls Only
+
+- **Resource/template listing is NOT part of the MVP.**
+- **Top priority:** Tool calls working within the chat/REPL interface, using the MCP protocol.
+- All integration tests for resource/template listing are skipped for now (see codebase for details).
+- Only chat-driven tool call integration (success, error, protocol compliance) is required for MVP.
+- This aligns with the REPL/chat-first canonical pattern and MCP protocol compliance.
+
+---

@@ -309,7 +309,7 @@ export class AgentLoop {
 
     this.disableResponseStorage = disableResponseStorage ?? false;
     this.sessionId = getSessionId() || randomUUID().replaceAll("-", "");
-    // Configure OpenAI client with optional timeout (ms) from environment
+
     const timeoutMs = OPENAI_TIMEOUT_MS;
     const apiKey = getApiKey(this.provider);
     const baseURL = getBaseUrl(this.provider);
@@ -345,7 +345,32 @@ export class AgentLoop {
       () => this.execAbortController?.abort(),
       { once: true },
     );
-    this.invokeMcpTool = invokeMcpTool;
+
+    // --- MCP graceful fallback: only enable MCP tools if config exists ---
+    import { existsSync } from "fs";
+    import { join, homedir } from "os";
+
+    function getMcpConfigPath() {
+      // Adjust path if different in your project
+      return join(homedir(), ".codex", "mcp_server.json");
+    }
+
+    function mcpConfigExists(): boolean {
+      try {
+        return existsSync(getMcpConfigPath());
+      } catch {
+        return false;
+      }
+    }
+
+    if (mcpConfigExists() && invokeMcpTool) {
+      this.invokeMcpTool = invokeMcpTool;
+    } else {
+      this.invokeMcpTool = undefined;
+      if (!mcpConfigExists()) {
+        log("[AgentLoop] MCP config missing, MCP tools disabled.");
+      }
+    }
   }
 
   private async handleFunctionCall(
@@ -1241,7 +1266,7 @@ export class AgentLoop {
             ],
           });
         } catch {
-          /* no-op – emitting the error message is best‑effort */
+          /* ignore */
         }
         this.onLoading(false);
         return;

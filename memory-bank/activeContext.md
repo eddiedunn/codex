@@ -1,3 +1,17 @@
+# Active Context: MVP REPL/Chat Scope Clarification (April 28, 2025)
+
+## Rust Implementation Explicitly Out of Scope
+- All MVP work for REPL/chat tool calling, logging, and MCP fallback is strictly in the TypeScript/Node.js codebase (`codex-cli`, `codex/src/cli`, etc.).
+- The Rust codebase (`codex-rs/repl/`) is NOT being modified, tested, or targeted for MVP or REPL/chat enhancements at this time.
+- Any Rust modules present are upstream experiments or not relevant to current product direction.
+- All contributors and automation should ignore `codex-rs` for the MVP REPL/chat milestone.
+
+## Next Steps
+- Document this decision in all relevant memory bank files and onboarding docs.
+- Proceed with TypeScript-only implementation for all new REPL/chat features.
+
+---
+
 # Active Context: Node.js Subprocess Reliability (April 28, 2025)
 
 ## Current State
@@ -232,6 +246,13 @@
 - Confirmed canonical pattern: All tool call and business logic integrations are REPL/chat-first, not CLI-centric.
 - Memory-bank/ refers only to project documentation files, not the AI memory store.
 - Refactoring and documentation updates in progress to ensure all new features follow this pattern.
+
+---
+
+### [2025-04-28] MVP Focus Update
+- Resource/template listing is not required for MVP; all related tests are skipped.
+- The only required integration is chat-driven tool call support (success, error, protocol compliance) with MCP servers.
+- Aligns with REPL/chat-first and protocol-compliant architecture.
 
 ---
 
