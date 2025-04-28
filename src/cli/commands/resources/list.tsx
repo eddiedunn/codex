@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Text } from 'ink';
 import { fetchPaginated, PaginationState } from '../../../agent/pagination.js';
 import { PaginatedList } from '../../../ui/PaginatedList.js';
-import { MinimalMcpClient } from '../../../codex-cli/src/utils/agent/mcp-client.ts';
+import { MinimalMcpClient } from '../../../../codex-cli/src/utils/agent/mcp-client';
 
 const mcpClient = new MinimalMcpClient({
   transport: 'stdio',
@@ -34,29 +34,21 @@ async function fetchResourcesPage({ page, pageSize }: { page: number; pageSize: 
 
 export default function ResourcesList({ onQuit }: { onQuit?: () => void } = {}) {
   console.error('[DEBUG] ResourcesList component rendered, MOCK_RESOURCES_LENGTH:', process.env['MOCK_RESOURCES_LENGTH']);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
+  const [page, setPage] = useState<number>(1);
   const [data, setData] = useState<PaginationState<{ name: string }>>({
-    items: [],
-    page: 0,
+    page: 1,
     pageSize: DEFAULT_PAGE_SIZE,
-    hasNext: true,
+    items: [],
+    hasNext: false,
     hasPrev: false,
-    cursor: undefined,
   });
 
   useEffect(() => {
-    let isMounted = true;
-    fetchPaginated(fetchResourcesPage, { page, pageSize }).then(newState => {
-      if (isMounted) {
-        setData(newState);
-        if (process.env['DEBUG_PAGINATION']) {
-          console.error('[DEBUG] setData called with:', JSON.stringify(newState, null, 2));
-        }
-      }
+    fetchPaginated(fetchResourcesPage, data).then((newState) => {
+      // Ensure items are typed as { name: string }[]
+      setData({ ...data, ...newState, items: (newState.items as { name: string }[]) });
     });
-    return () => { isMounted = false; };
-  }, [page, pageSize]);
+  }, [page, data.pageSize]);
 
   // Prevent quitting until at least one fetch/render with items or empty is complete
   const [canQuit, setCanQuit] = useState(false);

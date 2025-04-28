@@ -1,149 +1,124 @@
-// @ts-nocheck
+// Minimal MCP mock server for integration testing (stdio, CJS, no SDK)
+// Compatible with MCP protocol: https://github.com/modelcontextprotocol/modelcontextprotocol
+// Usage: node dist/utils/agent/mcp-mock-server.js
 
-/**
- * Minimal, spec-correct MCP mock server for integration testing.
- * Transport: stdio (JSON-RPC 2.0)
- */
-import readline from 'readline';
+const readline = require('readline');
 
-// Types for MCP protocol
-interface JsonRpcRequest {
-  jsonrpc: '2.0';
-  id: number | string;
-  method: string;
-  params?: Record<string, unknown>;
-}
-interface JsonRpcResponse {
-  jsonrpc: '2.0';
-  id: number | string;
-  result?: unknown;
-  error?: { code: number; message: string; data?: unknown };
-}
-
+// --- Mock Data ---
 const resources = [
   {
     uri: 'mock://resource/1',
-    name: 'mock://resource/1',
-    description: 'Mock Resource',
+    name: 'Mock Resource',
+    description: 'A mock resource for testing',
     mimeType: 'text/plain',
+  }
+];
+
+const tools = [
+  {
+    name: 'echo',
+    description: 'Echoes the input message',
+    parameters: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+      },
+      required: ['message'],
+    },
+  },
+  {
+    name: 'error_tool',
+    description: 'Always returns a tool-level error',
+    parameters: {
+      type: 'object',
+      properties: {
+        fail: { type: 'boolean' },
+      },
+      required: ['fail'],
+    },
   },
 ];
 
-function sendResponse(resp: JsonRpcResponse): void {
-  process.stdout.write(JSON.stringify(resp) + '\n');
-  process.stdout.emit && process.stdout.emit('flush');
-}
-
-function handleRequest(req: JsonRpcRequest): void {
-  if (!req.method) {
-    sendResponse({
+// --- JSON-RPC 2.0 Handler ---
+function handleRequest(req) {
+  if (!req || typeof req !== 'object' || req.jsonrpc !== '2.0' || !req.method) {
+    return {
+      jsonrpc: '2.0',
+      id: req && req.id !== undefined ? req.id : null,
+      error: { code: -32600, message: 'Invalid Request' },
+    };
+  }
+  if (req.method === 'resources/list') {
+    return {
       jsonrpc: '2.0',
       id: req.id,
-      error: { code: -32601, message: 'method not found' },
-    });
-    return;
+      result: resources,
+    };
+  }
+  if (req.method === 'tools/list') {
+    return {
+      jsonrpc: '2.0',
+      id: req.id,
+      result: tools,
+    };
   }
   if (req.method === 'tools/call') {
-    const { name, arguments: toolArgs } = req.params || {};
+    const { name, arguments: args } = req.params || {};
     if (name === 'echo') {
-      const msgArgs = toolArgs;
-      if (!msgArgs.message || typeof msgArgs.message !== 'string') {
-        sendResponse({
+      // Strict argument validation
+      if (
+        typeof args !== 'object' ||
+        args === null ||
+        Array.isArray(args) ||
+        typeof args.message !== 'string'
+      ) {
+        return {
           jsonrpc: '2.0',
           id: req.id,
           error: { code: -32602, message: 'Invalid arguments: expected { message: string }' },
-        });
-        return;
+        };
       }
-      sendResponse({
+      return {
+        jsonrpc: '2.0',
+        id: req.id,
+        result: { message: args.message },
+      };
+    } else if (name === 'error_tool') {
+      // Simulate a tool-level error (not a protocol error)
+      return {
         jsonrpc: '2.0',
         id: req.id,
         result: {
-          content: [{ text: msgArgs.message, type: 'text' }],
-        },
-      });
-      return;
-    } else if (name === 'error_tool') {
-      sendResponse({
-        jsonrpc: '2.0',
-        id: req.id,
-        error: {
-          code: 1234,
+          isError: true,
+          mcpToolError: true,
           message: 'Simulated tool error',
-          data: { mcpToolError: true }
-        }
-      });
-      return;
+        },
+      };
     } else {
-      sendResponse({
+      return {
         jsonrpc: '2.0',
         id: req.id,
-        error: { code: -32000, message: `tool not found: ${name}` },
-      });
-      return;
+        error: { code: -32601, message: `Unknown tool: ${name}` },
+      };
     }
-  } else if (req.method === 'resources/list') {
-    sendResponse({
-      jsonrpc: '2.0',
-      id: req.id,
-      result: { resources },
-    });
-    return;
-  } else if (req.method === 'resources/read') {
-    const { uri } = req.params || {};
-    const res = resources.find(r => r.uri === uri);
-    if (!res) {
-      sendResponse({
-        jsonrpc: '2.0',
-        id: req.id,
-        error: { code: -32001, message: `resource not found: ${uri}` },
-      });
-      return;
-    }
-    sendResponse({
-      jsonrpc: '2.0',
-      id: req.id,
-      result: {
-        contents: [{ uri: res.uri, mimeType: res.mimeType, text: 'This is a mock resource' }],
-      },
-    });
-    return;
-  } else if (req.method === 'events/subscribe') {
-    sendResponse({
-      jsonrpc: '2.0',
-      id: req.id,
-      error: { code: -32601, message: 'method not found' },
-    });
-    return;
-  } else {
-    sendResponse({
-      jsonrpc: '2.0',
-      id: req.id,
-      error: { code: -32601, message: 'method not found' },
-    });
-    return;
   }
+  return {
+    jsonrpc: '2.0',
+    id: req.id,
+    error: { code: -32601, message: `Unknown method: ${req.method}` },
+  };
 }
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
+// --- Main Loop ---
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false });
 rl.on('line', (line) => {
+  let req;
   try {
-    const req = JSON.parse(line);
-    handleRequest(req);
-  } catch (err) {
-    console.error('[MOCK SERVER] Failed to parse JSON:', err, 'Line:', line);
+    req = JSON.parse(line);
+  } catch (e) {
+    process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }) + '\n');
+    return;
   }
-});
-
-rl.on('close', () => {
-  console.log('[MOCK SERVER] Readline closed');
-});
-
-process.on('SIGTERM', () => {
-  console.log('[MOCK SERVER] Received SIGTERM, exiting');
-  process.exit(0);
+  const res = handleRequest(req);
+  process.stdout.write(JSON.stringify(res) + '\n');
 });

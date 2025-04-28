@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Text } from 'ink';
 import { fetchPaginated, PaginationState } from '../../../agent/pagination.js';
 import { PaginatedList } from '../../../ui/PaginatedList.js';
-import { MinimalMcpClient } from '../../../codex-cli/src/utils/agent/mcp-client.ts';
+import { MinimalMcpClient } from '../../../../codex-cli/src/utils/agent/mcp-client';
 
 const mcpClient = new MinimalMcpClient({
   transport: 'stdio',
@@ -10,7 +10,7 @@ const mcpClient = new MinimalMcpClient({
   stdioArgs: [],
 });
 
-async function fetchTemplatesPage({ page, pageSize, cursor }: { page: number; pageSize: number; cursor?: string }) {
+async function fetchTemplatesPage({ pageSize, cursor }: { pageSize: number; cursor?: string }) {
   if (!mcpClient.isConnected()) {
     await mcpClient.connect();
   }
@@ -26,25 +26,21 @@ async function fetchTemplatesPage({ page, pageSize, cursor }: { page: number; pa
 }
 
 export default function TemplatesList() {
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
   const [data, setData] = useState<PaginationState<{ name: string }>>({
-    items: [],
-    page: 0,
+    page: 1,
     pageSize: 10,
-    hasNext: true,
+    items: [],
+    hasNext: false,
     hasPrev: false,
-    cursor: undefined,
   });
+  const [canQuit, setCanQuit] = useState(false);
 
   useEffect(() => {
     fetchPaginated(fetchTemplatesPage, data).then(newState => {
-      setData({ ...newState, page, pageSize });
+      setData({ ...data, ...newState, items: (newState.items as { name: string }[]) });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, data.cursor]);
+  }, [data.pageSize, data.cursor]);
 
-  const [canQuit, setCanQuit] = useState(false);
   useEffect(() => {
     setCanQuit(true);
   }, [data.items]);
@@ -54,11 +50,9 @@ export default function TemplatesList() {
       state={data}
       renderItem={(item, idx) => <Text key={idx}>{item.name}</Text>}
       onNext={() => {
-        setPage(p => p + 1);
-        setData(d => ({ ...d, cursor: d.cursor }));
+        setData(d => ({ ...d, cursor: (d as any).nextPageToken ?? undefined }));
       }}
       onPrev={() => {
-        setPage(p => Math.max(0, p - 1));
         setData(d => ({ ...d, cursor: undefined }));
       }}
       onQuit={() => {

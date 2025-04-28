@@ -24,9 +24,9 @@ export async function waitForOutput(
     }
     function cleanup() {
       clearTimeout(timer);
-      pty.removeListener('data', onData);
+      if (disposeData) disposeData.dispose();
     }
-    pty.on('data', onData);
+    const disposeData = pty.onData(onData);
   });
 }
 
@@ -46,10 +46,11 @@ export async function killPty(pty: IPty, logTag?: string) {
   if (logTag) console.log(`[killPty] Killing PTY for: ${logTag}`);
   let exited = false;
   const exitPromise = new Promise((resolve) => {
-    pty.once('exit', () => {
+    const disposeExit = pty.onExit(() => {
       exited = true;
       if (logTag) console.log(`[killPty] PTY exited for: ${logTag}`);
       resolve(true);
+      disposeExit.dispose();
     });
   });
   try {
@@ -63,6 +64,5 @@ export async function killPty(pty: IPty, logTag?: string) {
     new Promise((resolve) => setTimeout(resolve, 2000)),
   ]);
   if (!exited && logTag) console.log(`[killPty] PTY did not exit in time for: ${logTag}`);
-  // Remove all listeners
-  pty.removeAllListeners && pty.removeAllListeners();
+  // No removeAllListeners in node-pty; handlers are disposed above.
 }

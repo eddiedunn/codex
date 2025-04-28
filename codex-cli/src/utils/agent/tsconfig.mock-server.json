@@ -1,13 +1,10 @@
 {
-  "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "noEmitOnError": false,
     "skipLibCheck": true,
     "outDir": "../../../dist/utils/agent",
-    "module": "ESNext",
-    "target": "ES2022",
-    "esModuleInterop": true,
-    "moduleResolution": "node"
+    "module": "CommonJS",
+    "target": "ES2022"
   },
   "include": ["mcp-mock-server.ts"]
 }

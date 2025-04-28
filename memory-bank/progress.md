@@ -228,4 +228,24 @@ The project is now ready to run the test suite to verify that all tests pass. Wi
 - Continue to use `/tmp` for all ephemeral test logs.
 - If similar issues arise, check the dist output and tsconfig inclusion/exclusion immediately.
 
+## [2025-04-27] MCP MVP Tool Calling Progress
+
+### What works
+- All MCP protocol integration tests now use the canonical mcptools mock server or local mock server.
+- Integration tests are robust, pass reliably, and log output to /tmp (not the repo).
+- All test helpers are precompiled to JS before test runs, per pattern.
+- Subprocess management, stdio wiring, and cleanup are correct and product-ready.
+- Dependency injection and error handling patterns are in place for AgentLoop and MinimalMcpClient.
+
+### What’s left
+- Final end-to-end CLI tool invocation validation against the mock server (MinimalMcpClient, CLI commands).
+- Confirm CLI output matches expected protocol responses and logs to /tmp.
+
+### Known issues/blockers
+- None at this stage. Integration harness and protocol logic are unblocked.
+
+### Next steps
+- Validate CLI E2E tool calling with the mock server.
+- Update memory bank with outcome and any final blockers or lessons learned.
+
 _Last updated: 2025-04-27_

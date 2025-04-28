@@ -298,3 +298,51 @@ describe('MCP stdio integration (local mock server)', () => {
     });
   });
 });
+
+// --- CLI user simulation integration test ---
+import fs from 'fs';
+const CLI_PATH = path.resolve(__dirname, '../../../codex-cli/bin/codex.js');
+
+describe('CLI user interaction (MCP integration)', () => {
+  it('should simulate a user entering a prompt and receiving an echo', async () => {
+    // Start the mock server as a separate process
+    const mockServer = spawn('node', [MOCK_SERVER_PATH], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+    });
+    await new Promise(res => setTimeout(res, 300));
+    // Start the CLI process
+    const cli = spawn('node', [CLI_PATH], {
+      cwd: path.resolve(__dirname, '../../../'),
+      env: {
+        ...process.env,
+        MCP_SERVER_PATH: 'node',
+        MCP_SERVER_ARGS: MOCK_SERVER_PATH,
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let output = '';
+    cli.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+    cli.stderr.on('data', (data) => {
+      output += data.toString();
+    });
+    // Simulate user entering a prompt
+    cli.stdin.write('echo hello from CLI\n');
+    // Wait for the CLI to print the echoed message and exit (or timeout)
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        cli.kill();
+        mockServer.kill();
+        reject(new Error('CLI test timed out'));
+      }, 5000);
+      cli.on('exit', (code) => {
+        clearTimeout(timeout);
+        mockServer.kill();
+        resolve(code);
+      });
+    });
+    expect(output).toMatch(/hello from CLI/);
+  });
+});

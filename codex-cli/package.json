@@ -5,7 +5,6 @@
   "bin": {
     "codex": "bin/codex.js"
   },
-  "type": "module",
   "engines": {
     "node": ">=22"
   },

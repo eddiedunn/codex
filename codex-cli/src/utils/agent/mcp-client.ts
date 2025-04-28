@@ -61,19 +61,15 @@ export class MinimalMcpClient implements McpClient {
           this.options.stdioArgs || [],
           { stdio: ["pipe", "pipe", "pipe"] }
         );
-        this.process.on("exit", (code, signal) => {
-          // console.warn(`[MCP CLIENT] MCP process exited with code=${code} signal=${signal}`);
+        this.process.on("exit", () => {
           this.connected = false;
         });
-        this.process.on("error", (err) => {
-          // console.error("[MCP CLIENT] MCP process error:", err);
+        this.process.on("error", () => {
         });
         this.process.stdout.on("close", () => {
-          // console.warn("[MCP CLIENT] MCP process stdout closed");
           this.connected = false;
         });
-        this.process.stdin.on("error", (err) => {
-          // console.error("[MCP CLIENT] MCP process stdin error:", err);
+        this.process.stdin.on("error", () => {
         });
       }
       this.connected = true;
@@ -154,7 +150,7 @@ export class MinimalMcpClient implements McpClient {
     });
   }
 
-  async notify(method: string, params?: Record<string, unknown>): Promise<void> {
+  async notify(/*method: string, params?: Record<string, unknown>*/) : Promise<void> {
     // TODO: send JSON-RPC notification
     throw new Error("Not implemented");
   }
@@ -169,16 +165,16 @@ export class MinimalMcpClient implements McpClient {
 
   async listResources(opts?: { pageToken?: string; pageSize?: number }): Promise<{ results: unknown[]; nextPageToken?: string; prevPageToken?: string }> {
     const params: Record<string, unknown> = {};
-    if (opts?.pageToken) {params.pageToken = opts.pageToken;}
-    if (opts?.pageSize) {params.pageSize = opts.pageSize;}
+    if (opts && 'pageToken' in opts) { params['pageToken'] = opts['pageToken']; }
+    if (opts && 'pageSize' in opts) { params['pageSize'] = opts['pageSize']; }
     const result = await this.request('resources/list', params);
     // Support both legacy array and new paginated object
     if (Array.isArray(result)) {return { results: result };}
-    if (result && Array.isArray(result.resources)) {
+    if (result && Array.isArray((result as any).resources)) {
       return {
-        results: result.resources,
-        nextPageToken: result.nextPageToken,
-        prevPageToken: result.prevPageToken,
+        results: (result as any).resources,
+        nextPageToken: (result as any).nextPageToken,
+        prevPageToken: (result as any).prevPageToken,
       };
     }
     throw new Error('Unexpected response shape from resources/list');
@@ -186,23 +182,23 @@ export class MinimalMcpClient implements McpClient {
 
   async listResourceTemplates(opts?: { pageToken?: string; pageSize?: number }): Promise<{ results: unknown[]; nextPageToken?: string; prevPageToken?: string }> {
     const params: Record<string, unknown> = {};
-    if (opts?.pageToken) {params.pageToken = opts.pageToken;}
-    if (opts?.pageSize) {params.pageSize = opts.pageSize;}
+    if (opts && 'pageToken' in opts) { params['pageToken'] = opts['pageToken']; }
+    if (opts && 'pageSize' in opts) { params['pageSize'] = opts['pageSize']; }
     const result = await this.request('resources/templates', params);
     if (Array.isArray(result)) {return { results: result };}
-    if (result && Array.isArray(result.templates)) {
+    if (result && Array.isArray((result as any).templates)) {
       return {
-        results: result.templates,
-        nextPageToken: result.nextPageToken,
-        prevPageToken: result.prevPageToken,
+        results: (result as any).templates,
+        nextPageToken: (result as any).nextPageToken,
+        prevPageToken: (result as any).prevPageToken,
       };
     }
     // Some backends may use 'resources' key for templates as well
-    if (result && Array.isArray(result.resources)) {
+    if (result && Array.isArray((result as any).resources)) {
       return {
-        results: result.resources,
-        nextPageToken: result.nextPageToken,
-        prevPageToken: result.prevPageToken,
+        results: (result as any).resources,
+        nextPageToken: (result as any).nextPageToken,
+        prevPageToken: (result as any).prevPageToken,
       };
     }
     throw new Error('Unexpected response shape from resources/templates');
@@ -246,6 +242,10 @@ export class MinimalMcpClient implements McpClient {
       }
       return result;
     } catch (err: any) {
+      // If this is a tool-level error (already has mcpToolError), throw as-is
+      if (err && err.mcpToolError) {
+        throw err;
+      }
       // Protocol-level error (e.g., tool not found, server error)
       if (err && err.message) {
         throw new Error(`MCP callTool protocol error: ${err.message}`);

@@ -156,6 +156,15 @@
 
 ---
 
+## [2025-04-27] MCP MVP Tool Calling Progress Update
+
+- Integration tests using both mcptools and local mock server are robust, protocol-aligned, and log to /tmp as required.
+- All helpers are precompiled JS, subprocess handling is correct, and tests use Vitest as required by project standards.
+- No blockers found in integration harness or protocol logic.
+- Next: Validate CLI end-to-end tool invocation (using MinimalMcpClient and mock server) to close the tool calling MVP loop.
+
+---
+
 # MCP Protocol Client Completion Plan (April 27, 2025)
 
 ## Immediate Focus: Tool Invocation (`tools/call`)

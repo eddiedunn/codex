@@ -28,6 +28,139 @@ import meow from "meow";
 import path from "path";
 import React from "react";
 
+const cli = meow(
+  `
+  Usage
+    $ codex [options] <prompt>
+    $ codex completion <bash|zsh|fish>
+
+  Options
+    --version                       Print version and exit
+
+    -h, --help                      Show usage and exit
+    -m, --model <model>             Model to use for completions (default: o4-mini)
+    -p, --provider <provider>       Provider to use for completions (default: openai)
+    -i, --image <path>              Path(s) to image files to include as input
+    -v, --view <rollout>            Inspect a previously saved rollout instead of starting a session
+    -q, --quiet                     Non-interactive mode that only prints the assistant's final output
+    -c, --config                    Open the instructions file in your editor
+    -w, --writable-root <path>      Writable folder for sandbox in full-auto mode (can be specified multiple times)
+    -a, --approval-mode <mode>      Override the approval policy: 'suggest', 'auto-edit', or 'full-auto'
+
+    --auto-edit                Automatically approve file edits; still prompt for commands
+    --full-auto                Automatically approve edits and commands when executed in the sandbox
+
+    --no-project-doc           Do not automatically include the repository's 'codex.md'
+    --project-doc <file>       Include an additional markdown file at <file> as context
+    --full-stdout              Do not truncate stdout/stderr from command outputs
+    --notify                   Enable desktop notifications for responses
+
+    --disable-response-storage Disable server‑side response storage (sends the
+                              full conversation context with every request)
+
+    --flex-mode               Use "flex-mode" processing mode for the request (only supported
+                              with models o3 and o4-mini)
+
+  Dangerous options
+    --dangerously-auto-approve-everything
+                              Skip all confirmation prompts and execute commands without
+                              sandboxing. Intended solely for ephemeral local testing.
+
+  Experimental options
+    -f, --full-context         Launch in "full-context" mode which loads the entire repository
+                              into context and applies a batch of edits in one go. Incompatible
+                              with all other flags, except for --model.
+
+  Examples
+    $ codex "Write and run a python program that prints ASCII art"
+    $ codex -q "fix build issues"
+    $ codex completion bash
+  `,
+  {
+    importMeta: import.meta,
+    autoHelp: true,
+    flags: {
+      help: { type: "boolean", aliases: ["h"] },
+      version: { type: "boolean", description: "Print version and exit" },
+      view: { type: "string" },
+      model: { type: "string", aliases: ["m"] },
+      provider: { type: "string", aliases: ["p"] },
+      image: { type: "string", isMultiple: true, aliases: ["i"] },
+      quiet: {
+        type: "boolean",
+        aliases: ["q"],
+        description: "Non-interactive quiet mode",
+      },
+      config: {
+        type: "boolean",
+        aliases: ["c"],
+        description: "Open the instructions file in your editor",
+      },
+      dangerouslyAutoApproveEverything: {
+        type: "boolean",
+        description:
+          "Automatically approve all commands without prompting. This is EXTREMELY DANGEROUS and should only be used in trusted environments.",
+      },
+      autoEdit: {
+        type: "boolean",
+        description: "Automatically approve edits; prompt for commands.",
+      },
+      fullAuto: {
+        type: "boolean",
+        description:
+          "Automatically run commands in a sandbox; only prompt for failures.",
+      },
+      approvalMode: {
+        type: "string",
+        aliases: ["a"],
+        description:
+          "Determine the approval mode for Codex (default: suggest) Values: suggest, auto-edit, full-auto",
+      },
+      writableRoot: {
+        type: "string",
+        isMultiple: true,
+        aliases: ["w"],
+        description:
+          "Writable folder for sandbox in full-auto mode (can be specified multiple times)",
+      },
+      noProjectDoc: {
+        type: "boolean",
+        description: "Disable automatic inclusion of project-level codex.md",
+      },
+      projectDoc: {
+        type: "string",
+        description: "Path to a markdown file to include as project doc",
+      },
+      flexMode: {
+        type: "boolean",
+        description:
+          "Enable the flex-mode service tier (only supported by models o3 and o4-mini)",
+      },
+      fullStdout: {
+        type: "boolean",
+        description:
+          "Disable truncation of command stdout/stderr messages (show everything)",
+        aliases: ["no-truncate"],
+      },
+      notify: {
+        type: "boolean",
+        description: "Enable desktop notifications for responses",
+      },
+      disableResponseStorage: {
+        type: "boolean",
+        description:
+          "Disable server-side response storage (sends full conversation context with every request)",
+      },
+      fullContext: {
+        type: "boolean",
+        aliases: ["f"],
+        description: `Run in full-context editing approach. The model is given the whole code
+          directory as context and performs changes in one go without acting.`,
+      },
+    },
+  },
+);
+
 // --- MCP Resource Protocol Subcommands ---
 // Subcommand logic removed by user request. All resource/template actions must be handled via the interactive agent loop. DO NOT ADD SUBCOMMANDS BACK.
 
@@ -293,139 +426,6 @@ if (process.stdin.isTTY) {
 // Ensure terminal clean-up always runs, even when other code calls
 // `process.exit()` directly.
 process.once("exit", onExit);
-
-const cli = meow(
-  `
-  Usage
-    $ codex [options] <prompt>
-    $ codex completion <bash|zsh|fish>
-
-  Options
-    --version                       Print version and exit
-
-    -h, --help                      Show usage and exit
-    -m, --model <model>             Model to use for completions (default: o4-mini)
-    -p, --provider <provider>       Provider to use for completions (default: openai)
-    -i, --image <path>              Path(s) to image files to include as input
-    -v, --view <rollout>            Inspect a previously saved rollout instead of starting a session
-    -q, --quiet                     Non-interactive mode that only prints the assistant's final output
-    -c, --config                    Open the instructions file in your editor
-    -w, --writable-root <path>      Writable folder for sandbox in full-auto mode (can be specified multiple times)
-    -a, --approval-mode <mode>      Override the approval policy: 'suggest', 'auto-edit', or 'full-auto'
-
-    --auto-edit                Automatically approve file edits; still prompt for commands
-    --full-auto                Automatically approve edits and commands when executed in the sandbox
-
-    --no-project-doc           Do not automatically include the repository's 'codex.md'
-    --project-doc <file>       Include an additional markdown file at <file> as context
-    --full-stdout              Do not truncate stdout/stderr from command outputs
-    --notify                   Enable desktop notifications for responses
-
-    --disable-response-storage Disable server‑side response storage (sends the
-                              full conversation context with every request)
-
-    --flex-mode               Use "flex-mode" processing mode for the request (only supported
-                              with models o3 and o4-mini)
-
-  Dangerous options
-    --dangerously-auto-approve-everything
-                              Skip all confirmation prompts and execute commands without
-                              sandboxing. Intended solely for ephemeral local testing.
-
-  Experimental options
-    -f, --full-context         Launch in "full-context" mode which loads the entire repository
-                              into context and applies a batch of edits in one go. Incompatible
-                              with all other flags, except for --model.
-
-  Examples
-    $ codex "Write and run a python program that prints ASCII art"
-    $ codex -q "fix build issues"
-    $ codex completion bash
-  `,
-  {
-    importMeta: import.meta,
-    autoHelp: true,
-    flags: {
-      help: { type: "boolean", aliases: ["h"] },
-      version: { type: "boolean", description: "Print version and exit" },
-      view: { type: "string" },
-      model: { type: "string", aliases: ["m"] },
-      provider: { type: "string", aliases: ["p"] },
-      image: { type: "string", isMultiple: true, aliases: ["i"] },
-      quiet: {
-        type: "boolean",
-        aliases: ["q"],
-        description: "Non-interactive quiet mode",
-      },
-      config: {
-        type: "boolean",
-        aliases: ["c"],
-        description: "Open the instructions file in your editor",
-      },
-      dangerouslyAutoApproveEverything: {
-        type: "boolean",
-        description:
-          "Automatically approve all commands without prompting. This is EXTREMELY DANGEROUS and should only be used in trusted environments.",
-      },
-      autoEdit: {
-        type: "boolean",
-        description: "Automatically approve edits; prompt for commands.",
-      },
-      fullAuto: {
-        type: "boolean",
-        description:
-          "Automatically run commands in a sandbox; only prompt for failures.",
-      },
-      approvalMode: {
-        type: "string",
-        aliases: ["a"],
-        description:
-          "Determine the approval mode for Codex (default: suggest) Values: suggest, auto-edit, full-auto",
-      },
-      writableRoot: {
-        type: "string",
-        isMultiple: true,
-        aliases: ["w"],
-        description:
-          "Writable folder for sandbox in full-auto mode (can be specified multiple times)",
-      },
-      noProjectDoc: {
-        type: "boolean",
-        description: "Disable automatic inclusion of project-level codex.md",
-      },
-      projectDoc: {
-        type: "string",
-        description: "Path to a markdown file to include as project doc",
-      },
-      flexMode: {
-        type: "boolean",
-        description:
-          "Enable the flex-mode service tier (only supported by models o3 and o4-mini)",
-      },
-      fullStdout: {
-        type: "boolean",
-        description:
-          "Disable truncation of command stdout/stderr messages (show everything)",
-        aliases: ["no-truncate"],
-      },
-      notify: {
-        type: "boolean",
-        description: "Enable desktop notifications for responses",
-      },
-      disableResponseStorage: {
-        type: "boolean",
-        description:
-          "Disable server-side response storage (sends full conversation context with every request)",
-      },
-      fullContext: {
-        type: "boolean",
-        aliases: ["f"],
-        description: `Run in full-context editing approach. The model is given the whole code
-          directory as context and performs changes in one go without acting.`,
-      },
-    },
-  },
-);
 
 // Handle 'completion' subcommand before any prompting or API calls
 if (cli.input[0] === "completion") {
