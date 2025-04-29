@@ -73,6 +73,18 @@
 
 ---
 
+## MCP Mock Server & Streaming Integration Pattern (April 28, 2025)
+
+- The MCP mock server (`mcp-mock-server.ts`) is now the canonical reference for protocol-compliant integration testing.
+- Strict validation: requires `params.name` and `params.arguments` for all tool calls; emits protocol-compliant errors for missing/invalid parameters and unknown tools.
+- Unknown tools should emit `{ code: -32601, message: 'Tool not found: ...' }` per spec (currently still -32600, needs fix).
+- Streaming tools (e.g., `stream_echo`) emit NDJSON chunk objects to stdout, followed by a final JSON-RPC response.
+- E2E/integration tests must parse NDJSON output, reconstruct streamed messages, and assert on both chunked and final responses.
+- All new streaming-capable tools and protocol extensions should follow this emission/test pattern for compatibility.
+- Document all new protocol, error handling, and streaming patterns in the memory bank and onboarding docs.
+
+---
+
 ## MCP Integration Test Streaming Pattern (April 2025)
 
 - The canonical MCP mock server supports streaming via NDJSON:

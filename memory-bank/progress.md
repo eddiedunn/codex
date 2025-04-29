@@ -324,67 +324,33 @@ The project is now ready to run the test suite to verify that all tests pass. Wi
 
 ---
 
-# MCP Integration Test Debugging (April 27, 2025)
+# Progress Update: MCP Mock Server & Integration Test Refactor (April 28, 2025)
 
-## Findings
-- The root cause of the failing in-band tool error test was a stale compiled JS for the mock server (`mcp-mock-server.js`).
-- TypeScript changes (diagnostic logs and logic) were not being reflected because the helper was not being rebuilt before test runs.
-- After a full clean and explicit build of the helper via its `tsconfig.mock-server.json`, the correct code was emitted and the tests passed.
-- Diagnostic logs confirmed correct parsing and handling of the `error_tool` branch.
+## Summary of Recent Work
+- Refactored MCP mock server to strictly enforce MCP protocol (requires `params.name` and `params.arguments` for all tool calls).
+- Protocol-compliant error handling for missing/invalid params and unknown tools is now implemented (but unknown tools still emit -32600, needs fix).
+- Streaming tools (`stream_echo`) emit NDJSON chunk output and a final JSON-RPC response; integration tests now parse and assert on these outputs.
+- Integration tests are updated to use the correct MCP protocol shape and robust NDJSON parsing for streaming and error cases.
+- All business logic is REPL/chat-first, with CLI delegating to shared services.
 
-## Progress
-- Integration test for in-band tool error now passes.
-- Mock server logic is correct and robust against protocol quirks.
-- Diagnostic logs were added and then removed after successful debugging.
-- Build and test workflow updated to always force a clean build for helpers.
+## Current Blockers
+- Unknown tool errors are still returned as code -32600 (Invalid Request) instead of -32601 (Tool not found).
+- Streaming and large payload tests fail due to no NDJSON chunks being received (likely a mock server bug or validation issue).
+
+## What Works
+- Protocol-compliant error handling for missing/invalid params.
+- NDJSON chunk streaming logic is present in the codebase.
+- Integration test harness robustly parses NDJSON output.
+
+## What’s Left
+- Patch mock server to emit -32601 for unknown tools.
+- Fix chunk emission for streaming and large payload tools.
+- Re-run integration tests and verify all pass.
+- Document new patterns and lessons learned in systemPatterns.md and memory bank.
 
 ## Next Steps
-- Maintain the canonical build/test pattern: always clean and rebuild helpers before integration tests.
-- If new helpers or features are added, ensure their tsconfigs and build steps are included in the root `pretest`.
-- Continue to use `/tmp` for all ephemeral test logs.
-- If similar issues arise, check the dist output and tsconfig inclusion/exclusion immediately.
-
-## [2025-04-27] MCP MVP Tool Calling Progress
-
-### What works
-- All MCP protocol integration tests now use the canonical mcptools mock server or local mock server.
-- Integration tests are robust, pass reliably, and log output to /tmp (not the repo).
-- All test helpers are precompiled to JS before test runs, per pattern.
-- Subprocess management, stdio wiring, and cleanup are correct and product-ready.
-- Dependency injection and error handling patterns are in place for AgentLoop and MinimalMcpClient.
-
-### What’s left
-- Final end-to-end CLI tool invocation validation against the mock server (MinimalMcpClient, CLI commands).
-- Confirm CLI output matches expected protocol responses and logs to /tmp.
-
-### Known issues/blockers
-- None at this stage. Integration harness and protocol logic are unblocked.
-
-### Next steps
-- Validate CLI E2E tool calling with the mock server.
-- Update memory bank with outcome and any final blockers or lessons learned.
-
-## [2025-04-28] Node.js PATH & Test Runner Best Practice
-
-**Problem:**
-Integration/E2E tests that spawn subprocesses (Vitest, mock server, etc.) fail with `spawn node ENOENT` if Node.js is not globally available in PATH. This is common with NVM-managed Node installs, as NVM only sets PATH for interactive shells, not subprocesses.
-
-**Best Practice:**
-- Always run tests using NVM’s exec command to ensure subprocesses inherit the correct Node version and PATH:
-  
-  ```bash
-  nvm exec <version> npm test
-  # or for Vitest directly:
-  nvm exec <version> npx vitest run
-  ```
-- Do NOT symlink node globally or hard-code PATH in test scripts. This avoids version drift and future confusion.
-- If you see `spawn node ENOENT`, re-run tests using `nvm exec` as above.
-- Document this workflow for all contributors.
-
-**Reference:**
-- See also systemPatterns.md for test runner and environment setup patterns.
-
----
+- Complete the above patches and verify green tests.
+- Update all documentation and onboarding material to reflect new canonical patterns for MCP protocol integration, error handling, and streaming.
 
 # Progress Update: Node 22, Build/Test Reliability & E2E Status (April 28, 2025)
 

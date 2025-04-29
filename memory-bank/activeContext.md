@@ -25,9 +25,40 @@
 - Enhance or add integration/E2E tests and diagnostic logs as needed.
 - Keep memory bank and code comments in sync with all new decisions and patterns.
 
-# Active Context: MVP REPL/Chat Scope Clarification (April 28, 2025)
+# Active Context: MCP Mock Server & Integration Test Refactor (April 28, 2025)
 
-## Rust Implementation Explicitly Out of Scope
+## Summary of Recent Progress
+- Refactored MCP mock server (`mcp-mock-server.ts`) to enforce strict MCP protocol compliance:
+  - Requires `params.name` and `params.arguments` for all tool calls.
+  - Emits protocol-compliant errors for missing/invalid parameters and unknown tools.
+  - Streaming tools (e.g., `stream_echo`) emit NDJSON chunk output followed by a final JSON-RPC response.
+- Integration tests updated to:
+  - Use correct MCP protocol shape: `{ params: { name, arguments } }`.
+  - Parse and assert on protocol-compliant error and streaming outputs.
+- Test harness now robustly parses NDJSON output for chunked streaming and error cases.
+- Memory bank, systemPatterns.md, and productContext.md are being kept in sync with all new patterns and findings.
+
+## Current Blockers
+- The mock server still emits code -32600 (Invalid Request) for unknown tools, not the intended code -32601 (Tool not found). Needs patching.
+- Streaming and large payload tests fail due to no chunks being received—likely a mock server emission bug or argument validation issue.
+
+## Immediate Next Steps
+- Patch the mock server to emit `-32601 Tool not found` for unknown tools.
+- Fix chunk emission for `stream_echo` and large payloads.
+- Re-run integration tests and verify all pass.
+- Update progress.md and systemPatterns.md with test results and new patterns.
+
+## What’s Working
+- Protocol-compliant error handling for missing/invalid params.
+- NDJSON chunk streaming logic is in place (needs bugfix).
+- All business logic is REPL/chat-first and CLI delegates to shared services.
+
+## What’s Next
+- Complete the above patches and verify green tests.
+- Document all patterns and lessons learned in the memory bank.
+- Ensure all onboarding and architectural docs reference the new canonical patterns for MCP protocol integration, error handling, and streaming.
+
+# Active Context: Rust Implementation Explicitly Out of Scope
 - All MVP work for REPL/chat tool calling, logging, and MCP fallback is strictly in the TypeScript/Node.js codebase (`codex-cli`, `codex/src/cli`, etc.).
 - The Rust codebase (`codex-rs/repl/`) is NOT being modified, tested, or targeted for MVP or REPL/chat enhancements at this time.
 - Any Rust modules present are upstream experiments or not relevant to current product direction.

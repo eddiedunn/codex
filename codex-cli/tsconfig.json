@@ -2,7 +2,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "nodenext",
     "target": "esnext",
     "lib": ["ES2015", "ES2015.Iterable", "ES2015.Promise", "ES2022", "ESNext"],
     "types": ["node"],
@@ -12,6 +12,7 @@
     },
     "resolveJsonModule": true,
     "jsx": "react",
+    "esModuleInterop": true,
     "declaration": true,
     "newLine": "lf",
     "stripInternal": true,

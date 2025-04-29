@@ -53,6 +53,7 @@ const tools = [
 
 // --- JSON-RPC 2.0 Handler ---
 function handleRequest(req) {
+  console.error('[MOCK SERVER DEBUG] handleRequest called with:', req && req.method, req && req.params);
   console.error('[MOCK SERVER DEBUG] Handling request:', req);
   if (!req || typeof req !== 'object' || req.jsonrpc !== '2.0' || !req.method) {
     console.error('[MOCK SERVER DEBUG] Invalid request:', req);
@@ -145,17 +146,17 @@ function handleRequest(req) {
     if (!req.params || typeof req.params !== 'object') {
       process.stdout.write(JSON.stringify({
         jsonrpc: '2.0',
-        id: req.id ?? null,
+        id: req && req.id !== undefined ? req.id : null,
         error: { code: -32600, message: "Invalid Request: missing 'params' object" }
       }) + '\n');
       return;
     }
     toolName = req.params.name;
     args = req.params.arguments;
-    if (!toolName) {
+    if (typeof toolName === 'undefined' || toolName === null) {
       process.stdout.write(JSON.stringify({
         jsonrpc: '2.0',
-        id: req.id ?? null,
+        id: req && req.id !== undefined ? req.id : null,
         error: { code: -32600, message: "Invalid Request: missing 'name' in params" }
       }) + '\n');
       return;
@@ -163,7 +164,7 @@ function handleRequest(req) {
     if (typeof args === 'undefined') {
       process.stdout.write(JSON.stringify({
         jsonrpc: '2.0',
-        id: req.id ?? null,
+        id: req && req.id !== undefined ? req.id : null,
         error: { code: -32602, message: "Invalid arguments: missing 'arguments' in params" }
       }) + '\n');
       return;
@@ -174,7 +175,7 @@ function handleRequest(req) {
       console.error('[MOCK SERVER DEBUG] Tool not found:', toolName);
       process.stdout.write(JSON.stringify({
         jsonrpc: '2.0',
-        id: req.id ?? null,
+        id: req && req.id !== undefined ? req.id : null,
         error: { code: -32601, message: `Tool not found: ${toolName}` }
       }) + '\n');
       return;
@@ -188,12 +189,12 @@ function handleRequest(req) {
         typeof args.message !== 'string'
       ) {
         console.error('[MOCK SERVER DEBUG] Invalid arguments for echo:', args);
-        process.stdout.write(JSON.stringify({ error: true, code: -32602, message: 'Invalid arguments: expected { message: string }' }) + '\n');
-        return {
+        process.stdout.write(JSON.stringify({
           jsonrpc: '2.0',
-          id: req.id,
-          error: { code: -32602, message: 'Invalid arguments: expected { message: string }' },
-        };
+          id: req && req.id !== undefined ? req.id : null,
+          error: { code: -32602, message: 'Invalid arguments: expected { message: string }' }
+        }) + '\n');
+        return;
       }
       console.error('[MOCK SERVER DEBUG] Returning echo result:', args.message);
       return {
@@ -218,18 +219,21 @@ function handleRequest(req) {
         args.chunks < 1 || args.chunks > 10
       ) {
         console.error('[MOCK SERVER DEBUG] Invalid arguments for stream_echo:', args);
-        process.stdout.write(JSON.stringify({ error: true, code: -32602, message: 'Invalid arguments: expected { message: string, chunks: number (1-10) }' }) + '\n');
-        return {
+        process.stdout.write(JSON.stringify({
           jsonrpc: '2.0',
-          id: req.id,
-          error: { code: -32602, message: 'Invalid arguments: expected { message: string, chunks: number (1-10) }' },
-        };
+          id: req && req.id !== undefined ? req.id : null,
+          error: { code: -32602, message: 'Invalid arguments: expected { message: string, chunks: number (1-10) }' }
+        }) + '\n');
+        return;
       }
       const totalLen = args.message.length;
       const chunkSize = Math.ceil(totalLen / args.chunks) || 1;
-      function emitChunk(i) {
-        if (i >= args.chunks) {
-          process.stdout.write('', () => {
+      console.error('[MOCK SERVER DEBUG] Entering stream_echo emission loop');
+      return new Promise(resolve => {
+        let i = 0;
+        function emitChunk() {
+          if (i >= args.chunks) {
+            // Emit final JSON-RPC response after all chunks
             setImmediate(() => {
               console.error('[MOCK SERVER DEBUG] Emitting final JSON-RPC response for stream_echo');
               resolve({
@@ -240,18 +244,17 @@ function handleRequest(req) {
                   chunks: args.chunks,
                 },
               });
+              console.error('[MOCK SERVER DEBUG] Finished emission loop for stream_echo');
             });
-          });
-          return;
+            return;
+          }
+          const chunkMsg = args.message.slice(i * chunkSize, (i + 1) * chunkSize);
+          console.error('[MOCK SERVER DEBUG] Emitting NDJSON chunk:', { chunk: i, text: chunkMsg });
+          console.log(JSON.stringify({ chunk: i, text: chunkMsg }));
+          i++;
+          setTimeout(emitChunk, 30);
         }
-        const chunkMsg = args.message.slice(i * chunkSize, (i + 1) * chunkSize);
-        console.error('[MOCK SERVER DEBUG] Emitting NDJSON chunk:', { chunk: i, text: chunkMsg });
-        process.stdout.write(JSON.stringify({ chunk: i, text: chunkMsg }) + '\n');
-        setTimeout(() => emitChunk(i + 1), 30);
-      }
-      console.error('[MOCK SERVER DEBUG] Handling stream_echo with', args);
-      return new Promise(resolve => {
-        emitChunk(0);
+        emitChunk();
       });
     }
   }
