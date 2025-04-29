@@ -1,26 +1,26 @@
 import "dotenv/config";
-import type { AppRollout } from "./app";
-import type { ApprovalPolicy } from "./approvals";
-import type { CommandConfirmation } from "./utils/agent/agent-loop";
-import type { AppConfig } from "./utils/config";
+import type { AppRollout } from "./app.js";
+import type { ApprovalPolicy } from "./approvals.js";
+import type { CommandConfirmation } from "./utils/agent/agent-loop.js";
+import type { AppConfig } from "./utils/config.js";
 // import type { ResponseItem } from "openai/resources/responses/responses";
 
-import App from "./app";
-import { runSinglePass } from "./cli-singlepass";
-import { AgentLoop } from "./utils/agent/agent-loop";
-import { ReviewDecision } from "./utils/agent/review";
-import { AutoApprovalMode } from "./utils/auto-approval-mode";
-import { checkForUpdates } from "./utils/check-updates";
+import App from "./app.js";
+import { runSinglePass } from "./cli-singlepass.js";
+import { AgentLoop } from "./utils/agent/agent-loop.js";
+import { ReviewDecision } from "./utils/agent/review.js";
+import { AutoApprovalMode } from "./utils/auto-approval-mode.js";
+import { checkForUpdates } from "./utils/check-updates.js";
 import {
   getApiKey,
   loadConfig,
   // PRETTY_PRINT,
   INSTRUCTIONS_FILEPATH,
-} from "./utils/config";
-import { createInputItem } from "./utils/input-utils";
-import { isModelSupportedForResponses } from "./utils/model-utils";
+} from "./utils/config.js";
+import { createInputItem } from "./utils/input-utils.js";
+import { isModelSupportedForResponses } from "./utils/model-utils.js";
 // import { parseToolCall } from "./utils/parsers";
-import { onExit, setInkRenderer } from "./utils/terminal";
+import { onExit, setInkRenderer } from "./utils/terminal.js";
 import { spawnSync } from "child_process";
 import fs from "fs";
 import { render } from "ink";
@@ -161,8 +161,41 @@ const cli = meow(
   },
 );
 
-// --- MCP Resource Protocol Subcommands ---
-// Subcommand logic removed by user request. All resource/template actions must be handled via the interactive agent loop. DO NOT ADD SUBCOMMANDS BACK.
+// ---------------------------------------------------------------------------
+// Global flag handling
+// ---------------------------------------------------------------------------
+
+// Handle 'completion' subcommand before any prompting or API calls
+if (cli.input[0] === "completion") {
+  const shell = cli.input[1] || "bash";
+  const scripts: Record<string, string> = {
+    bash: `# bash completion for codex
+_codex_completion() {
+  local cur
+  cur="\${COMP_WORDS[COMP_CWORD]}"
+  COMPREPLY=( $(compgen -o default -o filenames -- "\${cur}") )
+}
+complete -F _codex_completion codex`,
+    zsh: `# zsh completion for codex
+#compdef codex
+
+_codex() {
+  _arguments '*:filename:_files'
+}
+_codex`,
+    fish: `# fish completion for codex
+complete -c codex -a '(__fish_complete_path)' -d 'file path'`,
+  };
+  const script = scripts[shell];
+  if (!script) {
+    // eslint-disable-next-line no-console
+    console.error(`Unsupported shell: ${shell}`);
+    process.exit(1);
+  }
+  // eslint-disable-next-line no-console
+  console.log(script);
+  process.exit(0);
+}
 
 // For --help, show help and exit.
 if (cli.flags.help) {
@@ -426,33 +459,3 @@ if (process.stdin.isTTY) {
 // Ensure terminal clean-up always runs, even when other code calls
 // `process.exit()` directly.
 process.once("exit", onExit);
-
-// Handle 'completion' subcommand before any prompting or API calls
-if (cli.input[0] === "completion") {
-  const shell = cli.input[1] || "bash";
-  const scripts: Record<string, string> = {
-    bash: `# bash completion for codex
-_codex_completion() {
-  local cur
-  cur="\${COMP_WORDS[COMP_CWORD]}"
-  COMPREPLY=( $(compgen -o default -o filenames -- "\${cur}") )
-}
-complete -F _codex_completion codex`,
-    zsh: `# zsh completion for codex
-#compdef codex
-
-_codex() {
-  _arguments '*:filename:_files'
-}
-_codex`,
-    fish: `# fish completion for codex
-complete -c codex -a '(__fish_complete_path)' -d 'file path'`,
-  };
-  const script = scripts[shell];
-  if (!script) {
-    // console.error(`Unsupported shell: ${shell}`); // Use logger or handle error appropriately
-    process.exit(1);
-  }
-  // console.log(script); // Use logger or output as needed
-  process.exit(0);
-}
