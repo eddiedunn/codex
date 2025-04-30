@@ -4,10 +4,28 @@ import { AutoApprovalMode } from "./approvals.js";
 export type ApprovalPolicy = AutoApprovalMode;
 import type { CommandConfirmation } from "./utils/agent/agent-loop.js";
 import type { AppConfig } from "./utils/config.js";
-// import type { ResponseItem } from "openai/resources/responses/responses";
-
 import meow from "meow";
 import App from "./app.js";
+// Hack to suppress deprecation warnings (punycode)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(process as any).noDeprecation = true;
+
+import { runSinglePass } from "./cli-singlepass.js";
+import { AgentLoop } from "./utils/agent/agent-loop.js";
+import { ReviewDecision } from "./utils/agent/review.js";
+import { AutoApprovalMode as AutoApprovalModeUtil } from "./utils/auto-approval-mode.js";
+import { checkForUpdates } from "./utils/check-updates.js";
+import { getApiKey, loadConfig, PRETTY_PRINT, INSTRUCTIONS_FILEPATH } from "./utils/config.js";
+import { createInputItem } from "./utils/input-utils.js";
+import { initLogger } from "./utils/logger/log.js";
+import { isModelSupportedForResponses } from "./utils/model-utils.js";
+import { parseToolCall } from "./utils/parsers.js";
+import { onExit, setInkRenderer } from "./utils/terminal.js";
+import chalk from "chalk";
+import { spawnSync } from "child_process";
+import fs from "fs";
+import { render } from "ink";
+import { ReasoningEffort } from "openai/resources.mjs";
 
 const cli = meow(
   `
@@ -123,6 +141,12 @@ const cli = meow(
           "Disable truncation of stdout/stderr from command outputs (show everything)",
         aliases: ["no-truncate"],
       },
+      reasoning: {
+        type: "string",
+        description: "Set the reasoning effort level (low, medium, high)",
+        choices: ["low", "medium", "high"],
+        default: "high",
+      },
       notify: {
         type: "boolean",
         description: "Enable desktop notifications for responses",
@@ -142,10 +166,8 @@ const cli = meow(
   },
 );
 
-let render: typeof import("ink").render;
-
 (async () => {
-  ({ render } = await import("ink"));
+  const { render: inkRender } = await import("ink");
 
   const { runSinglePass } = await import("./cli-singlepass.js");
   const { AgentLoop } = await import("./utils/agent/agent-loop.js");
@@ -258,17 +280,22 @@ complete -c codex -a '(__fish_complete_path)' -d 'file path'`,
     process.exit(1);
   }
 
+  const flagPresent = Object.hasOwn(cli.flags, "disableResponseStorage");
+
+  const disableResponseStorage = flagPresent
+    ? Boolean(cli.flags.disableResponseStorage) // value user actually passed
+    : (config.disableResponseStorage ?? false); // fall back to YAML, default to false
+
   config = {
     apiKey,
     ...config,
     model: model ?? config.model,
     notify: Boolean(cli.flags.notify),
+    reasoningEffort:
+      (cli.flags.reasoning as ReasoningEffort | undefined) ?? "high",
     flexMode: Boolean(cli.flags.flexMode),
     provider,
-    disableResponseStorage:
-      cli.flags.disableResponseStorage !== undefined
-        ? Boolean(cli.flags.disableResponseStorage)
-        : config.disableResponseStorage,
+    disableResponseStorage,
   };
 
   try {
@@ -368,7 +395,7 @@ complete -c codex -a '(__fish_complete_path)' -d 'file path'`,
       ? AutoApprovalMode.AUTO_EDIT
       : config.approvalMode || AutoApprovalMode.SUGGEST;
 
-  const instance = render(
+  const instance = inkRender(
     React.createElement(App, {
       prompt,
       config,
