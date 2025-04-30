@@ -11,7 +11,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { parse } from "shell-quote";
-import { resolvePathAgainstWorkdir } from "src/approvals.js";
+import { resolvePathAgainstWorkdir } from "../../approvals.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000; // 10 seconds
 

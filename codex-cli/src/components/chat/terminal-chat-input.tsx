@@ -1,12 +1,12 @@
-import type { MultilineTextEditorHandle } from "./multiline-editor";
+import type { MultilineTextEditorHandle } from "./multiline-editor.js";
 import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { HistoryEntry } from "../../utils/storage/command-history.js";
 import type {
   ResponseInputItem,
   ResponseItem,
-} from "openai/resources/responses/responses.mjs";
+} from "../../utils/responses.js";
 
-import MultilineTextEditor from "./multiline-editor";
+import MultilineTextEditor from "./multiline-editor.js";
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TextCompletions from "./terminal-chat-completions.js";
 import { loadConfig } from "../../utils/config.js";
@@ -14,7 +14,7 @@ import { getFileSystemSuggestions } from "../../utils/file-system-suggestions.js
 import { createInputItem } from "../../utils/input-utils.js";
 import { log } from "../../utils/logger/log.js";
 import { setSessionId } from "../../utils/session.js";
-import { SLASH_COMMANDS, type SlashCommand } from "../../utils/slash-commands";
+import { SLASH_COMMANDS, type SlashCommand } from "../../utils/slash-commands.js";
 import {
   loadCommandHistory,
   addToHistory,

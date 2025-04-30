@@ -1,6 +1,6 @@
-import type { McpClientOptions } from './mcp-client';
+import type { McpClientOptions } from './mcp-client.js';
 
-import { MinimalMcpClient } from './mcp-client';
+import { MinimalMcpClient } from './mcp-client.js';
 import { describe, it, expect, vi } from 'vitest';
 
 describe('MinimalMcpClient', () => {

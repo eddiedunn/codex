@@ -68,6 +68,7 @@ describe("AgentLoop – generic network/server errors", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-generic-network-error-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "ping" }],
@@ -112,6 +113,7 @@ describe("AgentLoop – generic network/server errors", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-generic-network-error-2",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "ping" }],

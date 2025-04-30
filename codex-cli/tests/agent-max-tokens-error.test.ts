@@ -70,6 +70,7 @@ describe("AgentLoop – max_tokens too large error", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-max-tokens-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "hello" }],

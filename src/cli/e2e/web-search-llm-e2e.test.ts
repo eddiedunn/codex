@@ -13,8 +13,8 @@ function writeMcpConfig() {
   const apiKey = process.env.BRAVE_API_KEY;
   if (!apiKey) throw new Error('BRAVE_API_KEY not set in environment');
   const config = {
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-brave-search'],
+    command: process.execPath,
+    args: ['node_modules/@modelcontextprotocol/server-brave-search/dist/cli.js'],
     env: { BRAVE_API_KEY: apiKey }
   };
   fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(config, null, 2));
@@ -42,7 +42,7 @@ describe('E2E: Web search via real Brave MCP (stdio, no docker)', () => {
       console.log('[DEBUG] MCP config file not found!');
     }
     // Launch the CLI in REPL mode
-    pty = nodepty.spawn('node', ['codex-cli/bin/codex.js'], {
+    pty = nodepty.spawn(process.execPath, ['codex-cli/bin/codex.js'], {
       name: 'xterm-color',
       cols: 120,
       rows: 40,

@@ -7,12 +7,12 @@ import {
   ADD_FILE_PREFIX,
   DELETE_FILE_PREFIX,
   END_OF_FILE_PREFIX,
-  MOVE_FILE_TO_PREFIX,
   PATCH_SUFFIX,
   UPDATE_FILE_PREFIX,
   HUNK_ADD_LINE_PREFIX,
   PATCH_PREFIX,
-} from "src/parse-apply-patch";
+} from "./parse-apply-patch.js";
+import type { ResponseItem } from "openai/resources/responses/responses.mjs";
 
 // -----------------------------------------------------------------------------
 // Types & Models

@@ -115,6 +115,7 @@ describe("thinking time counter", () => {
     });
 
     const userMsg = {
+      id: "test-user-message-thinking-time-1",
       type: "message",
       role: "user",
       content: [{ type: "input_text", text: "do it" }],

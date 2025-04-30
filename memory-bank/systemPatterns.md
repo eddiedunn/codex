@@ -134,3 +134,29 @@ _Last updated: 2025-04-28_
 - This pattern matches the main branch of openai/codex and is now canonical for this project.
 
 ---
+
+## Canonical Build Setup for Node.js CLI with TypeScript & ESM (April 30, 2025)
+
+- **All CLI and agent packages are built and published as ESM (ECMAScript Modules).**
+  - `package.json` must include `"type": "module"`.
+  - TypeScript config (`tsconfig.json`) must set `"module": "ESNext"` or compatible.
+  - All source and build imports use explicit `.js` extensions for local files.
+- **Vite/Rollup Build Configuration:**
+  - Output format must be ESM (`format: 'es'`), not CommonJS, to support top-level await in dependencies.
+  - All Node.js built-in modules must be marked as external using:
+    ```js
+    external: [...builtinModules, ...builtinModules.map(m => `node:${m}`)]
+    ```
+  - Never rely on browser polyfills or default Vite behavior for Node.js CLI builds.
+- **TypeScript Import/Export Patterns:**
+  - Use only ESM `import`/`export` syntax, never `require` or `module.exports`.
+  - Always use `.js` extensions in source imports for local files, even in `.ts`/`.tsx` files.
+  - Node core and npm package imports do NOT use `.js` extensions (e.g., `import fs from 'fs/promises'`).
+- **Testing & Linting:**
+  - Use Vitest for all tests; ensure test runner is ESM-compatible.
+  - Confirm that all mocks and test helpers use the same import paths as the source code.
+- **Troubleshooting:**
+  - If you see errors like "Module format 'cjs' does not support top-level await", switch build output to ESM.
+  - If you see import resolution errors, check for missing `.js` extensions or misconfigured `external` modules in Rollup config.
+- **Documentation:**
+  - All onboarding and architectural docs must reference these patterns as canonical for CLI/agent development.

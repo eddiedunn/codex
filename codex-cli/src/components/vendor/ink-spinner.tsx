@@ -1,5 +1,5 @@
 import { Text } from "ink";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useInterval } from "use-interval";
 
 const spinnerTypes: Record<string, string[]> = {

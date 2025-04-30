@@ -1,4 +1,4 @@
-import type { ResponseItem } from "openai/resources/responses/responses.mjs";
+import type { ResponseItem } from "./responses.js";
 
 /**
  * Extracts the patch texts of all `apply_patch` tool calls from the given

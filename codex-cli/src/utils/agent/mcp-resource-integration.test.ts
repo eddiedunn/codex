@@ -1,4 +1,4 @@
-import { MinimalMcpClient } from './mcp-client';
+import { MinimalMcpClient } from './mcp-client.js';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 // Integration test with mcptools mock server

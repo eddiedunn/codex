@@ -1,28 +1,28 @@
 /* eslint-disable no-await-in-loop */
 
-import type { AppConfig } from "../utils/config";
-import type { FileOperation } from "../utils/singlepass/file_ops";
+import type { AppConfig } from "../utils/config.js";
+import type { FileOperation } from "../utils/singlepass/file_ops.js";
 
-import Spinner from "./vendor/ink-spinner"; // Third‑party / vendor components
-import TextInput from "./vendor/ink-text-input";
+import Spinner from "./vendor/ink-spinner.js"; // Third‑party / vendor components
+import TextInput from "./vendor/ink-text-input.js";
 import {
   OPENAI_TIMEOUT_MS,
   OPENAI_ORGANIZATION,
   OPENAI_PROJECT,
   getBaseUrl,
   getApiKey,
-} from "../utils/config";
+} from "../utils/config.js";
 import {
   generateDiffSummary,
   generateEditSummary,
-} from "../utils/singlepass/code_diff";
-import { renderTaskContext } from "../utils/singlepass/context";
+} from "../utils/singlepass/code_diff.js";
+import { renderTaskContext } from "../utils/singlepass/context.js";
 import {
   getFileContents,
   loadIgnorePatterns,
   makeAsciiDirectoryStructure,
-} from "../utils/singlepass/context_files";
-import { EditedFilesSchema } from "../utils/singlepass/file_ops";
+} from "../utils/singlepass/context_files.js";
+import { EditedFilesSchema } from "../utils/singlepass/file_ops.js";
 import * as fsSync from "fs";
 import * as fsPromises from "fs/promises";
 import { Box, Text, useApp, useInput } from "ink";

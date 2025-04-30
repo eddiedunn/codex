@@ -1,15 +1,16 @@
-import type { ApprovalPolicy } from "./approvals";
-import type { AppConfig } from "./utils/config";
-import type { ResponseItem } from "openai/resources/responses/responses";
+import type { AppConfig } from "./utils/config.js";
+import type { ResponseItem } from "./utils/responses.js";
 
-import TerminalChat from "./components/chat/terminal-chat";
-import TerminalChatPastRollout from "./components/chat/terminal-chat-past-rollout";
-import { checkInGit } from "./utils/check-in-git";
-import { CLI_VERSION, type TerminalChatSession } from "./utils/session";
-import { onExit } from "./utils/terminal";
+import TerminalChat from "./components/chat/terminal-chat.js";
+import TerminalChatPastRollout from "./components/chat/terminal-chat-past-rollout.js";
+import { checkInGit } from "./utils/check-in-git.js";
+import { CLI_VERSION, type TerminalChatSession } from "./utils/session.js";
+import { onExit } from "./utils/terminal.js";
 import { ConfirmInput } from "@inkjs/ui";
 import { Box, Text, useApp, useStdin } from "ink";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { AutoApprovalMode } from "./approvals.js";
+export type ApprovalPolicy = AutoApprovalMode;
 
 export type AppRollout = {
   session: TerminalChatSession;

@@ -447,3 +447,26 @@ The project is now ready to run the test suite to verify that all tests pass. Wi
 - Confirm all session initialization, tool schema, and fallback logic is covered by tests.
 - Update documentation and memory bank as new issues or solutions are discovered.
 - Maintain strict TypeScript/Node.js-only scope for all work related to the MVP.
+
+# Progress Update: TypeScript/ESM Build Milestone (April 30, 2025)
+
+## Summary
+- Successfully resolved all TypeScript import and ESM/CJS compatibility errors in the codex CLI build process.
+- Migrated Vite build output to ESM (`format: 'es'`) to support dependencies (e.g., yoga-layout) that use top-level await.
+- Ensured all imports use explicit `.js` extensions and ESM-compliant syntax throughout the codebase.
+- Updated Vite config to mark all Node.js built-ins as external, preventing browser polyfills and ensuring Node.js compatibility for CLI builds.
+- Confirmed that build output is now generated in `dist/` and CLI/test suite can run without module resolution or import errors.
+- Documented all best practices and canonical patterns for future CLI/agent build setup.
+
+## Best Practices Established
+- **Always use ESM output for Node.js CLIs if dependencies use top-level await.**
+- **Explicitly mark all Node.js built-in modules as external in Vite/Rollup config:**
+  - Use `external: [...builtinModules, ...builtinModules.map(m => `node:${m}`)]` in rollupOptions.
+- **Use `.js` extensions for all imports** in ESM TypeScript projects to avoid runtime resolution errors.
+- **Set `type: "module"` in package.json** for CLI packages to ensure Node.js treats output as ESM.
+- **Never rely on browser polyfills for Node.js CLI builds.**
+- **Update and document all build/test patterns in the memory bank and onboarding docs.**
+
+## Next Steps
+- Run full test suite to verify CLI and agent logic post-build.
+- Continue to document new build/test patterns and any further findings in memory-bank/.

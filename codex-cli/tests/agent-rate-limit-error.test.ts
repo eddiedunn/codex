@@ -88,6 +88,7 @@ describe("AgentLoop – rate‑limit handling", () => {
 
       const userMsg = [
         {
+          id: "test-user-message-rate-limit-1",
           type: "message",
           role: "user",
           content: [{ type: "input_text", text: "hello" }],

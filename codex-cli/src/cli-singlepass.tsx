@@ -1,8 +1,7 @@
-import type { AppConfig } from "./utils/config";
+import type { AppConfig } from "./utils/config.js";
 
-import { SinglePassApp } from "./components/singlepass-cli-app";
+import { SinglePassApp } from "./components/singlepass-cli-app.js";
 import { render } from "ink";
-import React from "react";
 
 export async function runSinglePass({
   originalPrompt,

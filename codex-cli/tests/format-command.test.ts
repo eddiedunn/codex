@@ -1,4 +1,4 @@
-import { formatCommandForDisplay } from "../src/format-command";
+import { formatCommandForDisplay } from "../src/format-command.js";
 import { describe, test, expect } from "vitest";
 
 describe("formatCommandForDisplay()", () => {

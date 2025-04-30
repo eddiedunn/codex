@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from 'ink-testing-library';
+import { render } from 'ink-testing-library'; 
 import { describe, it, expect, vi } from 'vitest';
 import ResourcesList from './list';
 

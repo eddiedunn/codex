@@ -3,7 +3,7 @@ import type { OpenAI } from "openai";
 import type {
   ResponseCreateInput,
   ResponseEvent,
-} from "../src/utils/responses";
+} from "../src/utils/responses.js";
 import type {
   ResponseInputItem,
   Tool,
@@ -76,7 +76,7 @@ function createTestInput(options: {
     role: "user",
     content: [
       {
-        type: "input_text" as const,
+        type: "text" as const,
         text: options.userMessage,
       },
     ],
@@ -292,7 +292,7 @@ describe("responsesCreateViaChatCompletions", () => {
       if (callArgs) {
         expect(callArgs.model).toBe("gpt-4o");
         expect(callArgs.messages).toEqual([
-          { role: "user", content: "Hello world" },
+          { role: "user", content: [{ type: "text", text: "Hello world" }] },
         ]);
         expect(callArgs.stream).toBe(false);
       }
@@ -313,7 +313,7 @@ describe("responsesCreateViaChatCompletions", () => {
         expect(outputItem.content).toHaveLength(1);
 
         const content = outputItem.content[0];
-        if (content && content.type === "output_text") {
+        if (content && content.type === "text") {
           expect(content.text).toBe("This is a test response");
         }
       }
@@ -380,7 +380,9 @@ describe("responsesCreateViaChatCompletions", () => {
 
       const result = await responsesModule.responsesCreateViaChatCompletions(
         openaiClient,
-        inputMessage as ResponseCreateParams & { stream: false },
+        inputMessage as unknown as ResponseCreateParamsNonStreaming & {
+          stream?: false | undefined;
+        },
       );
 
       // Verify OpenAI was called with correct parameters
@@ -493,13 +495,17 @@ describe("responsesCreateViaChatCompletions", () => {
         // Should have 3 messages: original user, assistant response, and new user message
         expect(secondCallArgs.messages).toHaveLength(3);
         expect(secondCallArgs.messages[0].role).toBe("user");
-        expect(secondCallArgs.messages[0].content).toBe("Hi there");
+        expect(secondCallArgs.messages[0].content).toEqual([
+          { type: "text", text: "Hi there" },
+        ]);
         expect(secondCallArgs.messages[1].role).toBe("assistant");
         expect(secondCallArgs.messages[1].content).toBe(
           "Hello! How can I help you?",
         );
         expect(secondCallArgs.messages[2].role).toBe("user");
-        expect(secondCallArgs.messages[2].content).toBe("Who are you?");
+        expect(secondCallArgs.messages[2].content).toEqual([
+          { type: "text", text: "Who are you?" },
+        ]);
       }
     });
 
@@ -600,7 +606,7 @@ describe("responsesCreateViaChatCompletions", () => {
           messages: [
             {
               role: "user",
-              content: "What's the weather in San Francisco?",
+              content: [{ type: "text", text: "What's the weather in San Francisco?" }],
             },
           ],
           tools: [

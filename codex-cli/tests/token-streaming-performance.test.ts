@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { ResponseItem } from "openai/resources/responses/responses.mjs";
+import { AutoApprovalMode } from "../src/utils/auto-approval-mode.js";
 
 // Mock OpenAI to avoid API key requirement
 vi.mock("openai", () => {
@@ -48,7 +49,7 @@ describe("Token streaming performance", () => {
     // Create a minimal AgentLoop instance
     const agentLoop = new AgentLoop({
       model: "gpt-4",
-      approvalPolicy: "auto-edit",
+      approvalPolicy: AutoApprovalMode.AUTO_EDIT,
       additionalWritableRoots: [],
       onItem: mockOnItem,
       onLoading: vi.fn(),
@@ -72,6 +73,7 @@ describe("Token streaming performance", () => {
     // Call run with some input
     const runPromise = agentLoop.run([
       {
+        id: "test-user-message-token-stream-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "Test message" }],

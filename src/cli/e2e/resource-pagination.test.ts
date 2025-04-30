@@ -7,6 +7,7 @@ import process from 'process';
 
 // Robust CLI path: always relative to monorepo root
 // TEMP: Use absolute path for CLI binary to avoid cwd/sandbox issues
+const NODE_BIN = process.execPath;
 const CLI_PATH = '/Users/tmwsiy/code/codex/codex-cli/bin/codex.js';
 
 // Print directory contents for diagnostics
@@ -58,10 +59,6 @@ describe('CLI Resource Pagination E2E', () => {
     exitCode = undefined;
     exitError = undefined;
     logEnv('beforeEach');
-    // Use absolute Node.js binary path to avoid ENOENT with NVM and node-pty
-    // See https://github.com/nvm-sh/nvm/issues/2146 and project troubleshooting docs
-    const NODE_BIN = process.execPath;
-    // Spawn the CLI in a pseudo-terminal for each test
     pty = nodepty.spawn(NODE_BIN, [CLI_PATH, 'resources', 'list'], {
       cols: 120,
       rows: 40,

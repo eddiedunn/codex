@@ -102,6 +102,7 @@ describe("cancel before first function_call", () => {
     // Start first run.
     agent.run([
       {
+        id: "test-user-message-cancel-early-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "do" }],
@@ -115,6 +116,7 @@ describe("cancel before first function_call", () => {
     // Second run.
     await agent.run([
       {
+        id: "test-user-message-cancel-early-2",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "new" }],

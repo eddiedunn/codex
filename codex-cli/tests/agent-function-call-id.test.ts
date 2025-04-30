@@ -127,6 +127,7 @@ describe("function_call_output includes original call ID", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-function-call-id-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "run" }],

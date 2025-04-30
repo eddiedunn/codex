@@ -6,6 +6,10 @@ import {
 } from "./utils/agent/apply-patch.js";
 import * as path from "path";
 import { parse } from "shell-quote";
+import { AutoApprovalMode } from "./utils/auto-approval-mode.js";
+
+// Re-export canonical enum from utils/auto-approval-mode.ts
+export { AutoApprovalMode } from "./utils/auto-approval-mode.js";
 
 export type SafetyAssessment = {
   /**
@@ -42,26 +46,7 @@ export type ApplyPatchCommand = {
   patch: string;
 };
 
-export type ApprovalPolicy =
-  /**
-   * Under this policy, only "known safe" commands as defined by
-   * `isSafeCommand()` that only read files will be auto-approved.
-   */
-  | "suggest"
-
-  /**
-   * In addition to commands that are auto-approved according to the rules for
-   * "suggest", commands that write files within the user's approved list of
-   * writable paths will also be auto-approved.
-   */
-  | "auto-edit"
-
-  /**
-   * All commands are auto-approved, but are expected to be run in a sandbox
-   * where network access is disabled and writes are limited to a specific set
-   * of paths.
-   */
-  | "full-auto";
+export type ApprovalPolicy = AutoApprovalMode;
 
 /**
  * Tries to assess whether a command is safe to run, though may defer to the
@@ -119,7 +104,7 @@ export function canAutoApprove(
       // In practice, there seem to be syntactically valid shell commands that
       // shell-quote cannot parse, so we should not reject, but ask the user.
       switch (policy) {
-        case "full-auto":
+        case AutoApprovalMode.FULL_AUTO:
           // In full-auto, we still run the command automatically, but must
           // restrict it to the sandbox.
           return {
@@ -128,8 +113,8 @@ export function canAutoApprove(
             group: "Running commands",
             runInSandbox: true,
           };
-        case "suggest":
-        case "auto-edit":
+        case AutoApprovalMode.SUGGEST:
+        case AutoApprovalMode.AUTO_EDIT:
           // In all other modes, since we cannot reason about the command, we
           // should ask the user.
           return {
@@ -156,7 +141,7 @@ export function canAutoApprove(
     }
   }
 
-  return policy === "full-auto"
+  return policy === AutoApprovalMode.FULL_AUTO
     ? {
         type: "auto-approve",
         reason: "Full auto mode",
@@ -173,15 +158,15 @@ function canAutoApproveApplyPatch(
   policy: ApprovalPolicy,
 ): SafetyAssessment {
   switch (policy) {
-    case "full-auto":
+    case AutoApprovalMode.FULL_AUTO:
       // Continue to see if this can be auto-approved.
       break;
-    case "suggest":
+    case AutoApprovalMode.SUGGEST:
       return {
         type: "ask-user",
         applyPatch: { patch: applyPatchArg },
       };
-    case "auto-edit":
+    case AutoApprovalMode.AUTO_EDIT:
       // Continue to see if this can be auto-approved.
       break;
   }
@@ -202,7 +187,7 @@ function canAutoApproveApplyPatch(
     };
   }
 
-  return policy === "full-auto"
+  return policy === AutoApprovalMode.FULL_AUTO
     ? {
         type: "auto-approve",
         reason: "Full auto mode",
@@ -321,15 +306,15 @@ function tryParseApplyPatch(bashArg: string): string | null {
   }
 }
 
+/**
+ * If this is a "known safe" command, returns the (reason, group); otherwise,
+ * returns null.
+ */
 export type SafeCommandReason = {
   reason: string;
   group: string;
 };
 
-/**
- * If this is a "known safe" command, returns the (reason, group); otherwise,
- * returns null.
- */
 export function isSafeCommand(
   command: ReadonlyArray<string>,
 ): SafeCommandReason | null {

@@ -106,6 +106,7 @@ describe("AgentLoop – automatic retry on 5xx errors", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-server-retry-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "hi" }],
@@ -144,6 +145,7 @@ describe("AgentLoop – automatic retry on 5xx errors", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-server-retry-2",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "hello" }],

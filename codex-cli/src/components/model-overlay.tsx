@@ -4,7 +4,7 @@ import {
   RECOMMENDED_MODELS as _RECOMMENDED_MODELS,
 } from "../utils/model-utils.js";
 import { Box, Text, useInput } from "ink";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * Props for <ModelOverlay>.

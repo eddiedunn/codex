@@ -2,7 +2,7 @@ import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { CommandConfirmation } from "../../utils/agent/agent-loop.js";
 import type { AppConfig } from "../../utils/config.js";
 import type { ColorName } from "chalk";
-import type { ResponseItem } from "openai/resources/responses/responses.mjs";
+import type { ResponseItem } from "../../utils/responses.js";
 
 import TerminalChatInput from "./terminal-chat-input.js";
 import { TerminalChatToolCallCommand } from "./terminal-chat-tool-call-command.js";
@@ -459,19 +459,14 @@ export default function TerminalChat({
   );
 
   const handleSubmitInput = (...args: Array<unknown>) => {
-    log("[DEBUG] handleSubmitInput called", args);
-    // console.log("[DEBUG] handleSubmitInput called", args); // Use logger if needed
-    if (typeof config.mcpClient?.listResources === "function") {
-      log("[DEBUG] mcpClient.listResources is available");
-      // console.log("[DEBUG] mcpClient.listResources is available"); // Use logger if needed
-    } else {
-      log("[DEBUG] mcpClient.listResources is NOT available");
-      // console.log("[DEBUG] mcpClient.listResources is NOT available"); // Use logger if needed
-    }
+    log("[DEBUG] handleSubmitInput called");
+    // if (typeof config.mcpClient?.listResources === "function") {
+    //   log("[DEBUG] mcpClient.listResources is available");
+    // } else {
+    //   log("[DEBUG] mcpClient.listResources is NOT available");
+    // }
     if (agent) {
-      agent.run(args[0], lastResponseId || "");
-    } else {
-      // console.log("[DEBUG] agent is undefined"); // Use logger if needed
+      agent.run(Array.isArray(args[0]) ? args[0] : [], lastResponseId || "");
     }
     return {};
   };
@@ -498,7 +493,6 @@ export default function TerminalChat({
               provider,
               approvalPolicy,
               colorsByPolicy,
-              agent,
               initialImagePaths,
               flexModeEnabled: Boolean(config.flexMode),
             }}

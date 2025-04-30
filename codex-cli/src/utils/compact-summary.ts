@@ -1,5 +1,5 @@
 import type { AppConfig } from "./config.js";
-import type { ResponseItem } from "openai/resources/responses/responses.mjs";
+import type { ResponseItem } from "./responses.js";
 
 import { getBaseUrl, getApiKey } from "./config.js";
 import OpenAI from "openai";

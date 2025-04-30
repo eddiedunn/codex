@@ -1,7 +1,7 @@
 import type { AgentName } from "package-manager-detector";
 
-import { detectInstallerByPath } from "./package-manager-detector";
-import { CLI_VERSION } from "./session";
+import { detectInstallerByPath } from "./package-manager-detector.js";
+import { CLI_VERSION } from "./session.js";
 import boxen from "boxen";
 import chalk from "chalk";
 import { getLatestVersion } from "fast-npm-meta";
@@ -72,7 +72,7 @@ async function getUpdateCheckInfo(
 }
 
 export async function checkForUpdates(): Promise<void> {
-  const { CONFIG_DIR } = await import("./config");
+  const { CONFIG_DIR } = await import("./config.js");
   const stateFile = join(CONFIG_DIR, "update-check.json");
 
   // Load previous check timestamp

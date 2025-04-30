@@ -1,5 +1,4 @@
 import { Box, Text, useInput } from "ink";
-import React from "react";
 
 /**
  * An overlay that lists the available slash‑commands and their description.

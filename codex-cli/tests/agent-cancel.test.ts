@@ -102,6 +102,7 @@ describe("Agent cancellation", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-cancel-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "say hi" }],
@@ -150,6 +151,7 @@ describe("Agent cancellation", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-cancel-2",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "say hi" }],

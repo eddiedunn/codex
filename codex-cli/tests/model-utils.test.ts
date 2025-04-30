@@ -2,8 +2,8 @@ import { describe, test, expect } from "vitest";
 import {
   calculateContextPercentRemaining,
   maxTokensForModel,
-} from "../src/utils/model-utils";
-import { openAiModelInfo } from "../src/utils/model-info";
+} from "../src/utils/model-utils.js";
+import { openAiModelInfo } from "../src/utils/model-info.js";
 import type { ResponseItem } from "openai/resources/responses/responses.mjs";
 
 describe("Model Utils", () => {

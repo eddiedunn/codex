@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { openAiModelInfo } from "../src/utils/model-info";
+import { openAiModelInfo } from "../src/utils/model-info.js";
 
 describe("Model Info", () => {
   test("supportedModelInfo contains expected models", () => {

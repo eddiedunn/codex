@@ -30,7 +30,7 @@ describe('MCPO E2E (TTY) - Resource Listing', () => {
     // See https://github.com/nvm-sh/nvm/issues/2146 and project troubleshooting docs
     const NODE_BIN = process.execPath;
     // Minimal node-pty test: spawn echo hello (still safe, but use NODE_BIN for Node.js CLI)
-    const pty = nodepty.spawn('echo', ['hello'], {
+    const pty = nodepty.spawn(NODE_BIN, ['-e', "console.log('hello')"], {
       cols: 120,
       rows: 40,
       cwd: process.cwd(),

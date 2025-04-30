@@ -111,6 +111,7 @@ describe("cancel clears previous_response_id", () => {
     // turn completes so the tool result is never returned.
     agent.run([
       {
+        id: "test-user-message-cancel-prev-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "do something" }],
@@ -125,6 +126,7 @@ describe("cancel clears previous_response_id", () => {
     // Second user input.
     await agent.run([
       {
+        id: "test-user-message-cancel-prev-2",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "new command" }],

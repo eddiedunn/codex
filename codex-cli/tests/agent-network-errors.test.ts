@@ -118,6 +118,7 @@ describe("AgentLoop – network resilience", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-agent-network-errors-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "hi" }],
@@ -160,6 +161,7 @@ describe("AgentLoop – network resilience", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-agent-network-errors-2",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "hi" }],

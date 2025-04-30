@@ -122,6 +122,7 @@ describe("Agent terminate (hard cancel)", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-terminate-2",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "run long cmd" }],
@@ -160,6 +161,7 @@ describe("Agent terminate (hard cancel)", () => {
 
     const dummyMsg = [
       {
+        id: "test-user-message-terminate-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "noop" }],

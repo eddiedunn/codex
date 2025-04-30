@@ -1,7 +1,8 @@
-import App from "../../../app";
-import { render } from "ink-testing-library";
-import React from "react";
+import App from "../../../app.js";
+import { render } from 'ink-testing-library';
 import { vi, describe, it, expect } from "vitest";
+import stripAnsi from "strip-ansi";
+import { AutoApprovalMode } from "../../../utils/auto-approval-mode.js";
 
 // Mock MCP client with paginated responses
 const mockMcpClient = {
@@ -34,8 +35,7 @@ const mockConfig = {
   model: "test-model",
   provider: "test-provider",
   instructions: "",
-  approvalMode: "suggest",
-  notify: () => {},
+  approvalMode: AutoApprovalMode.SUGGEST,
   disableResponseStorage: true,
   cwd: "/tmp",
   version: "test-version",
@@ -53,13 +53,13 @@ const mockConfig = {
   sessionId: "test-session",
 };
 
-// Helper: wait for output to contain expected string
+// Helper: wait for output to contain expected string (strips ANSI)
 async function waitForOutput(fn: () => string, matcher: (s: string) => boolean, timeout = 2000) {
   const start = Date.now();
   while (Date.now() - start < timeout) {
-    const val = fn() ?? "";
-    if (matcher(val)) {return;}
-    await new Promise(res => setTimeout(res, 50)); // Intentional use of await in loop for polling. Lint rule disabled as this is required for polling.
+    const val = stripAnsi(fn() ?? "");
+    if (matcher(val)) return;
+    await new Promise(res => setTimeout(res, 25));
   }
   throw new Error("Timeout waiting for output");
 }
@@ -69,7 +69,7 @@ describe("CLI Pagination (Ink)", () => {
     const { lastFrame, stdin } = render(
       <App
         config={mockConfig}
-        approvalPolicy={"suggest"}
+        approvalPolicy={AutoApprovalMode.SUGGEST}
         additionalWritableRoots={[]}
         fullStdout={false}
       />
@@ -78,28 +78,40 @@ describe("CLI Pagination (Ink)", () => {
     // Simulate user entering "list resources"
     stdin.write("list resources");
     stdin.write("\r");
+    for (let i = 0; i < 20; i++) {
+      await new Promise(res => setTimeout(res, 100));
+      console.log(`[frame ${i}]`, stripAnsi(lastFrame() ?? "<empty>"));
+    }
 
     await waitForOutput(() => lastFrame() ?? "", s => s.includes("res1") && s.includes("res2") && /more results available/i.test(s));
-    expect(lastFrame()).toContain("res1");
-    expect(lastFrame()).toContain("res2");
-    expect(lastFrame()).toMatch(/more results available/i);
+    expect(stripAnsi(lastFrame() ?? "")).toContain("res1");
+    expect(stripAnsi(lastFrame() ?? "")).toContain("res2");
+    expect(stripAnsi(lastFrame() ?? "")).toMatch(/more results available/i);
 
     // Simulate user entering "next"
     stdin.write("next");
     stdin.write("\r");
+    for (let i = 0; i < 20; i++) {
+      await new Promise(res => setTimeout(res, 100));
+      console.log(`[frame ${i}] after next`, stripAnsi(lastFrame() ?? "<empty>"));
+    }
 
     await waitForOutput(() => lastFrame() ?? "", s => s.includes("res3") && s.includes("res4") && /previous.*to go back/i.test(s));
-    expect(lastFrame()).toContain("res3");
-    expect(lastFrame()).toContain("res4");
-    expect(lastFrame()).toMatch(/previous.*to go back/i);
+    expect(stripAnsi(lastFrame() ?? "")).toContain("res3");
+    expect(stripAnsi(lastFrame() ?? "")).toContain("res4");
+    expect(stripAnsi(lastFrame() ?? "")).toMatch(/previous.*to go back/i);
 
     // Simulate user entering "previous"
     stdin.write("previous");
     stdin.write("\r");
+    for (let i = 0; i < 20; i++) {
+      await new Promise(res => setTimeout(res, 100));
+      console.log(`[frame ${i}] after previous`, stripAnsi(lastFrame() ?? "<empty>"));
+    }
 
     await waitForOutput(() => lastFrame() ?? "", s => s.includes("res1") && s.includes("res2") && /more results available/i.test(s));
-    expect(lastFrame()).toContain("res1");
-    expect(lastFrame()).toContain("res2");
-    expect(lastFrame()).toMatch(/more results available/i);
+    expect(stripAnsi(lastFrame() ?? "")).toContain("res1");
+    expect(stripAnsi(lastFrame() ?? "")).toContain("res2");
+    expect(stripAnsi(lastFrame() ?? "")).toMatch(/more results available/i);
   });
 });

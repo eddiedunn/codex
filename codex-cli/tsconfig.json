@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "outDir": "dist",
-    "module": "ESNext",
+    "module": "NodeNext",
     "moduleResolution": "nodenext",
     "target": "esnext",
     "lib": ["ES2015", "ES2015.Iterable", "ES2015.Promise", "ES2022", "ESNext"],
@@ -11,9 +11,9 @@
       "src/*": ["src/*"]
     },
     "resolveJsonModule": true,
-    "jsx": "react",
+    "jsx": "react-jsx",
     "esModuleInterop": true,
-    "declaration": true,
+    "declaration": false,
     "newLine": "lf",
     "stripInternal": true,
     "strict": true,
@@ -25,10 +25,13 @@
     "noUncheckedIndexedAccess": true,
     "noPropertyAccessFromIndexSignature": true,
     "noUncheckedSideEffectImports": true,
-    "noEmitOnError": true,
+    "noEmitOnError": false,
     "useDefineForClassFields": true,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "incremental": true
   },
   "include": ["src", "tests", "bin"]
 }

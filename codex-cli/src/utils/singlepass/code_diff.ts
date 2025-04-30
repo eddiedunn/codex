@@ -1,4 +1,4 @@
-import type { EditedFiles, FileOperation } from "./file_ops";
+import type { EditedFiles, FileOperation } from "./file_ops.js";
 
 import { createTwoFilesPatch } from "diff";
 

@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { join } from "node:path";
 import os from "node:os";
-import type { UpdateOptions } from "../src/utils/check-updates";
+import type { UpdateOptions } from "../src/utils/check-updates.js";
 import { getLatestVersion } from "fast-npm-meta";
 import { getUserAgent } from "package-manager-detector";
 import {
   checkForUpdates,
   renderUpdateCommand,
-} from "../src/utils/check-updates";
-import { detectInstallerByPath } from "../src/utils/package-manager-detector";
-import { CLI_VERSION } from "../src/utils/session";
+} from "../src/utils/check-updates.js";
+import { detectInstallerByPath } from "../src/utils/package-manager-detector.js";
+import { CLI_VERSION } from "../src/utils/session.js";
 
 // In-memory FS mock
 let memfs: Record<string, string> = {};

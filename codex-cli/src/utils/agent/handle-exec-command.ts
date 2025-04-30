@@ -1,7 +1,9 @@
 import type { CommandConfirmation } from "./agent-loop.js";
-import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
+import type { ApplyPatchCommand } from "../../approvals.js";
 import type { ExecInput } from "./sandbox/interface.js";
-import type { ResponseInputItem } from "openai/resources/responses/responses.mjs";
+import type { ResponseInputItem } from "../responses.js";
+import { AutoApprovalMode } from "../../utils/auto-approval-mode.js";
+export type ApprovalPolicy = AutoApprovalMode;
 
 import { canAutoApprove } from "../../approvals.js";
 import { formatCommandForDisplay } from "../../format-command.js";

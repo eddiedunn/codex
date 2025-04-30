@@ -1,5 +1,4 @@
 import { Text } from "ink";
-import * as React from "react";
 
 export type Props = {
   readonly isSelected?: boolean;

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Text } from 'ink';
 import { fetchPaginated, PaginationState } from '../../../agent/pagination.js';
 import { PaginatedList } from '../../../ui/PaginatedList.js';
-import { MinimalMcpClient } from '../../../../codex-cli/src/utils/agent/mcp-client';
+import { MinimalMcpClient } from '../../shared/agent/mcp-client.js';
 
 const mcpClient = new MinimalMcpClient({
   transport: 'stdio',
@@ -68,7 +68,7 @@ export default function ResourcesList({ onQuit }: { onQuit?: () => void } = {}) 
   return (
     <PaginatedList
       state={data}
-      renderItem={(item, idx) => <Text key={idx}>{item.name}</Text>}
+      renderItem={(item: any, idx: number) => <Text key={idx}>{item.name}</Text>}
       onNext={() => {
         setPage(p => p + 1);
       }}

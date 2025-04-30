@@ -1,4 +1,4 @@
-import type { ExecResult } from "./interface";
+import type { ExecResult } from "./interface.js";
 import type {
   ChildProcess,
   SpawnOptions,
@@ -7,9 +7,9 @@ import type {
   StdioPipe,
 } from "child_process";
 
-import { log } from "../../logger/log";
-import { adaptCommandForPlatform } from "../platform-commands";
-import { createTruncatingCollector } from "./create-truncating-collector";
+import { log } from "../../logger/log.js";
+import { adaptCommandForPlatform } from "../platform-commands.js";
+import { createTruncatingCollector } from "./create-truncating-collector.js";
 import { spawn } from "child_process";
 import * as os from "os";
 

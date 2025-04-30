@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import which from "which";
-import { detectInstallerByPath } from "../src/utils/package-manager-detector";
+import { detectInstallerByPath } from "../src/utils/package-manager-detector.js";
 import { execFileSync } from "node:child_process";
 
 vi.mock("which", () => ({

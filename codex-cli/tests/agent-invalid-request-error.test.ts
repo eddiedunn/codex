@@ -67,6 +67,7 @@ describe("AgentLoop – invalid request / 4xx errors", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-invalid-request-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "hello" }],

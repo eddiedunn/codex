@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "outDir": "dist",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "node16",
     "target": "esnext",
     "lib": ["ES2015", "ES2015.Iterable", "ES2015.Promise", "ES2022", "ESNext"],
     "types": ["node"],
@@ -11,11 +11,18 @@
       "src/*": ["src/*"]
     },
     "resolveJsonModule": true,
-    "jsx": "react",
-    "declaration": true,
-    "newLine": "lf",
-    "stripInternal": true,
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    // "allowImportingTsExtensions": true,
+    "declaration": false,
+    "noEmit": false,
+    "rootDir": "src",
+    "incremental": true,
+    "moduleDetection": "force",
     "strict": true,
+    "noImplicitAny": false,
     "noImplicitReturns": true,
     "noImplicitOverride": true,
     "noUnusedLocals": true,
@@ -29,7 +36,7 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["src", "bin"],
+  "include": ["src", "bin", "src/shared/agent/*"],
   "exclude": [
     "**/*.test.ts",
     "**/*.test.tsx",

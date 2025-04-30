@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text, useInput } from 'ink';
-import type { PaginationState } from '../agent/pagination';
+import type { PaginationState } from '../agent/pagination.js';
 
 interface PaginatedListProps<T> {
   state: PaginationState<T>;

@@ -2,174 +2,30 @@ import type { OpenAI } from "openai";
 import type {
   ResponseCreateParams,
   Response,
-} from "openai/resources/responses/responses";
+  ResponseItem,
+} from "openai/resources/responses/responses.mjs";
 
 // Define interfaces based on OpenAI API documentation
 type ResponseCreateInput = ResponseCreateParams;
 type ResponseOutput = Response;
-// interface ResponseOutput {
-//   id: string;
-//   object: 'response';
-//   created_at: number;
-//   status: 'completed' | 'failed' | 'in_progress' | 'incomplete';
-//   error: { code: string; message: string } | null;
-//   incomplete_details: { reason: string } | null;
-//   instructions: string | null;
-//   max_output_tokens: number | null;
-//   model: string;
-//   output: Array<{
-//     type: 'message';
-//     id: string;
-//     status: 'completed' | 'in_progress';
-//     role: 'assistant';
-//     content: Array<{
-//       type: 'output_text' | 'function_call';
-//       text?: string;
-//       annotations?: Array<any>;
-//       tool_call?: {
-//         id: string;
-//         type: 'function';
-//         function: { name: string; arguments: string };
-//       };
-//     }>;
-//   }>;
-//   parallel_tool_calls: boolean;
-//   previous_response_id: string | null;
-//   reasoning: { effort: string | null; summary: string | null };
-//   store: boolean;
-//   temperature: number;
-//   text: { format: { type: 'text' } };
-//   tool_choice: string | object;
-//   tools: Array<any>;
-//   top_p: number;
-//   truncation: string;
-//   usage: {
-//     input_tokens: number;
-//     input_tokens_details: { cached_tokens: number };
-//     output_tokens: number;
-//     output_tokens_details: { reasoning_tokens: number };
-//     total_tokens: number;
-//   } | null;
-//   user: string | null;
-//   metadata: Record<string, string>;
-// }
 
-// Define types for the ResponseItem content and parts
-type ResponseContentPart = {
-  type: string;
-  [key: string]: unknown;
+// Local compatibility type for OpenAI ChatCompletionMessageParam
+type ChatCompletionContentPartText = {
+  type: "text";
+  text: string;
 };
 
-type ResponseItemType = {
-  type: string;
-  id?: string;
-  status?: string;
-  role?: string;
-  content?: Array<ResponseContentPart>;
-  [key: string]: unknown;
-};
-
-type ResponseEvent =
-  | { type: "response.created"; response: Partial<ResponseOutput> }
-  | { type: "response.in_progress"; response: Partial<ResponseOutput> }
+export type ChatCompletionMessageParam =
   | {
-      type: "response.output_item.added";
-      output_index: number;
-      item: ResponseItemType;
+      role: "system" | "user" | "assistant" | "developer";
+      content: string | ChatCompletionContentPartText[];
+      tool_call_id?: string;
     }
   | {
-      type: "response.content_part.added";
-      item_id: string;
-      output_index: number;
-      content_index: number;
-      part: ResponseContentPart;
-    }
-  | {
-      type: "response.output_text.delta";
-      item_id: string;
-      output_index: number;
-      content_index: number;
-      delta: string;
-    }
-  | {
-      type: "response.output_text.done";
-      item_id: string;
-      output_index: number;
-      content_index: number;
-      text: string;
-    }
-  | {
-      type: "response.function_call_arguments.delta";
-      item_id: string;
-      output_index: number;
-      content_index: number;
-      delta: string;
-    }
-  | {
-      type: "response.function_call_arguments.done";
-      item_id: string;
-      output_index: number;
-      content_index: number;
-      arguments: string;
-    }
-  | {
-      type: "response.content_part.done";
-      item_id: string;
-      output_index: number;
-      content_index: number;
-      part: ResponseContentPart;
-    }
-  | {
-      type: "response.output_item.done";
-      output_index: number;
-      item: ResponseItemType;
-    }
-  | { type: "response.completed"; response: ResponseOutput }
-  | { type: "error"; code: string; message: string; param: string | null };
-
-// Define a type for tool call data
-type ToolCallData = {
-  id: string;
-  name: string;
-  arguments: string;
-};
-
-// Define a type for usage data
-type UsageData = {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-  input_tokens?: number;
-  input_tokens_details?: { cached_tokens: number };
-  output_tokens?: number;
-  output_tokens_details?: { reasoning_tokens: number };
-  [key: string]: unknown;
-};
-
-// Define a type for content output
-type ResponseContentOutput =
-  | {
-      type: "function_call";
-      call_id: string;
-      name: string;
-      arguments: string;
-      [key: string]: unknown;
-    }
-  | {
-      type: "output_text";
-      text: string;
-      annotations: Array<unknown>;
-      [key: string]: unknown;
+      role: "tool";
+      content: string;
+      tool_call_id: string;
     };
-
-// Global map to store conversation histories
-const conversationHistories = new Map<
-  string,
-  {
-    previous_response_id: string | null;
-    messages: Array<OpenAI.Chat.Completions.ChatCompletionMessageParam>;
-  }
->();
 
 // Utility function to generate unique IDs
 function generateId(prefix: string = "msg"): string {
@@ -181,33 +37,26 @@ type ResponseInputItem = ResponseCreateInput["input"][number];
 
 function convertInputItemToMessage(
   item: string | ResponseInputItem,
-): OpenAI.Chat.Completions.ChatCompletionMessageParam {
-  // Handle string inputs as content for a user message
+): ChatCompletionMessageParam {
   if (typeof item === "string") {
     return { role: "user", content: item };
   }
-
-  // At this point we know it's a ResponseInputItem
   const responseItem = item;
-
   if (responseItem.type === "message") {
-    // Use a more specific type assertion for the message content
-    const content = Array.isArray(responseItem.content)
+    const contentArr: ChatCompletionContentPartText[] = Array.isArray(responseItem.content)
       ? responseItem.content
-          .filter((c) => typeof c === "object" && c.type === "input_text")
-          .map((c) =>
-            typeof c === "object" && "text" in c
-              ? (c["text"] as string) || ""
-              : "",
-          )
-          .join("")
-      : "";
-    return { role: responseItem.role, content };
+          .filter((c) => typeof c === "object" && "text" in c)
+          .map((c) => ({ type: "text", text: c.text ?? "" }))
+      : [];
+    return {
+      role: responseItem.role,
+      content: contentArr.length > 0 ? contentArr : "",
+    };
   } else if (responseItem.type === "function_call_output") {
     return {
       role: "tool",
       tool_call_id: responseItem.call_id,
-      content: responseItem.output,
+      content: typeof responseItem.output === "string" ? responseItem.output : "",
     };
   }
   throw new Error(`Unsupported input item type: ${responseItem.type}`);
@@ -216,9 +65,8 @@ function convertInputItemToMessage(
 // Function to get full messages including history
 function getFullMessages(
   input: ResponseCreateInput,
-): Array<OpenAI.Chat.Completions.ChatCompletionMessageParam> {
-  let baseHistory: Array<OpenAI.Chat.Completions.ChatCompletionMessageParam> =
-    [];
+): Array<ChatCompletionMessageParam> {
+  let baseHistory: Array<ChatCompletionMessageParam> = [];
   if (input.previous_response_id) {
     const prev = conversationHistories.get(input.previous_response_id);
     if (!prev) {
@@ -228,19 +76,26 @@ function getFullMessages(
     }
     baseHistory = prev.messages;
   }
-
-  // Handle both string and ResponseInputItem in input.input
   const newInputMessages = Array.isArray(input.input)
     ? input.input.map(convertInputItemToMessage)
     : [convertInputItemToMessage(input.input)];
-
-  const messages = [...baseHistory, ...newInputMessages];
+  // Only include valid ChatCompletionMessageParam and filter out any with null/undefined content
+  const messages = [...baseHistory, ...newInputMessages].filter(
+    (msg): msg is ChatCompletionMessageParam =>
+      typeof msg.role === "string" &&
+      "content" in msg &&
+      msg.content !== null &&
+      msg.content !== undefined
+  );
   if (
     input.instructions &&
-    messages[0]?.role !== "system" &&
-    messages[0]?.role !== "developer"
+    (messages.length === 0 ||
+      (messages.length > 0 && messages[0].role !== "system" && messages[0].role !== "developer"))
   ) {
-    return [{ role: "system", content: input.instructions }, ...messages];
+    return [
+      { role: "system", content: input.instructions },
+      ...messages,
+    ];
   }
   return messages;
 }
@@ -298,10 +153,10 @@ async function responsesCreateViaChatCompletions(
   input: ResponseCreateInput & { stream?: false },
 ): Promise<ResponseOutput>;
 async function responsesCreateViaChatCompletions(
-  openai: OpenAI,
+  openAI: OpenAI,
   input: ResponseCreateInput,
 ): Promise<ResponseOutput | AsyncGenerator<ResponseEvent>> {
-  const completion = await createCompletion(openai, input);
+  const completion = await createCompletion(openAI, input);
   if (input.stream) {
     return streamResponses(
       input,
@@ -335,29 +190,30 @@ async function nonStreamResponses(
     // Construct ResponseOutput
     const responseId = generateId("resp");
     const outputItemId = generateId("msg");
-    const outputContent: Array<ResponseContentOutput> = [];
 
-    // Check if the response contains tool calls
-    const hasFunctionCalls =
-      assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0;
-
-    if (hasFunctionCalls && assistantMessage.tool_calls) {
-      for (const toolCall of assistantMessage.tool_calls) {
-        if (toolCall.type === "function") {
-          outputContent.push({
-            type: "function_call",
-            call_id: toolCall.id,
-            name: toolCall.function.name,
-            arguments: toolCall.function.arguments,
-          });
-        }
+    // --- PATCH: Handle function/tool calls as OpenAI-style content ---
+    let outputContent: Array<any> = [];
+    let hasFunctionCalls = false;
+    if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+      hasFunctionCalls = true;
+      // For each tool_call, create a content item of type 'function_call'
+      outputContent = assistantMessage.tool_calls.map((toolCall) => ({
+        type: "function_call",
+        name: toolCall.function.name,
+        arguments: toolCall.function.arguments,
+      }));
+    } else if (assistantMessage.content) {
+      let textValue = "";
+      if (Array.isArray(assistantMessage.content)) {
+        textValue = assistantMessage.content
+          .map((c) => (typeof c === "object" && "text" in c ? c.text : ""))
+          .join("");
+      } else if (typeof assistantMessage.content === "string") {
+        textValue = assistantMessage.content;
       }
-    }
-
-    if (assistantMessage.content) {
       outputContent.push({
-        type: "output_text",
-        text: assistantMessage.content,
+        type: "text",
+        text: textValue,
         annotations: [],
       });
     }
@@ -407,13 +263,7 @@ async function nonStreamResponses(
 
     // Add required_action property for tool calls
     if (hasFunctionCalls && assistantMessage.tool_calls) {
-      // Define type with required action
-      type ResponseWithAction = Partial<ResponseOutput> & {
-        required_action: unknown;
-      };
-
-      // Use the defined type for the assertion
-      (responseOutput as ResponseWithAction).required_action = {
+      (responseOutput as any).required_action = {
         type: "submit_tool_outputs",
         submit_tool_outputs: {
           tool_calls: assistantMessage.tool_calls.map((toolCall) => ({
@@ -453,9 +303,9 @@ async function* streamResponses(
   const outputItemId = generateId("msg");
   let textContentAdded = false;
   let textContent = "";
-  const toolCalls = new Map<number, ToolCallData>();
-  let usage: UsageData | null = null;
-  const finalOutputItem: Array<ResponseContentOutput> = [];
+  const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
+  let usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null = null;
+  const finalOutputItem: Array<ChatCompletionMessageParam> = [];
   // Initial response
   const initialResponse: Partial<ResponseOutput> = {
     id: responseId,
@@ -486,7 +336,6 @@ async function* streamResponses(
   yield { type: "response.in_progress", response: initialResponse };
   let isToolCall = false;
   for await (const chunk of completion as AsyncIterable<OpenAI.ChatCompletionChunk>) {
-    // console.error('\nCHUNK: ', JSON.stringify(chunk));
     const choice = chunk.choices[0];
     if (!choice) {
       continue;
@@ -504,10 +353,6 @@ async function* streamResponses(
         prompt_tokens: chunk.usage.prompt_tokens,
         completion_tokens: chunk.usage.completion_tokens,
         total_tokens: chunk.usage.total_tokens,
-        input_tokens: chunk.usage.prompt_tokens,
-        input_tokens_details: { cached_tokens: 0 },
-        output_tokens: chunk.usage.completion_tokens,
-        output_tokens_details: { reasoning_tokens: 0 },
       };
     }
     if (isToolCall) {
@@ -576,7 +421,7 @@ async function* streamResponses(
             output_index: tcIndex,
             item,
           };
-          finalOutputItem.push(item as unknown as ResponseContentOutput);
+          finalOutputItem.push(item as unknown as ChatCompletionMessageParam);
         }
       } else {
         continue;
@@ -631,7 +476,7 @@ async function* streamResponses(
           output_index: 0,
           item,
         };
-        finalOutputItem.push(item as unknown as ResponseContentOutput);
+        finalOutputItem.push(item as unknown as ChatCompletionMessageParam);
       } else {
         continue;
       }
@@ -665,10 +510,9 @@ async function* streamResponses(
     } as ResponseOutput;
 
     // Store history
-    const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam =
-      {
-        role: "assistant" as const,
-      };
+    const assistantMessage: ChatCompletionMessageParam = {
+      role: "assistant" as const,
+    };
 
     if (textContent) {
       assistantMessage.content = textContent;
@@ -676,28 +520,13 @@ async function* streamResponses(
 
     // Add tool_calls property if needed
     if (toolCalls.size > 0) {
-      const toolCallsArray = Array.from(toolCalls.values()).map((tc) => ({
-        id: tc.id,
-        type: "function" as const,
-        function: { name: tc.name, arguments: tc.arguments },
-      }));
-
-      // Define a more specific type for the assistant message with tool calls
-      type AssistantMessageWithToolCalls =
-        OpenAI.Chat.Completions.ChatCompletionMessageParam & {
-          tool_calls: Array<{
-            id: string;
-            type: "function";
-            function: {
-              name: string;
-              arguments: string;
-            };
-          }>;
-        };
-
-      // Use type assertion with the defined type
-      (assistantMessage as AssistantMessageWithToolCalls).tool_calls =
-        toolCallsArray;
+      (assistantMessage as any).tool_calls = Array.from(toolCalls.values()).map(
+        (tc) => ({
+          id: tc.id,
+          type: "function" as const,
+          function: { name: tc.name, arguments: tc.arguments },
+        }),
+      );
     }
     const newHistory = [...fullMessages, assistantMessage];
     conversationHistories.set(responseId, {
@@ -709,9 +538,33 @@ async function* streamResponses(
   }
 }
 
+// Global map to store conversation histories
+const conversationHistories = new Map<
+  string,
+  {
+    previous_response_id: string | null;
+    messages: Array<ChatCompletionMessageParam>;
+  }
+>();
+
+export type ResponseEvent =
+  | { type: "response.created"; response: Partial<ResponseOutput> }
+  | { type: "response.in_progress"; response: Partial<ResponseOutput> }
+  | { type: "response.output_item.added"; output_index: number; item: any }
+  | { type: "response.content_part.added"; item_id: string; output_index: number; content_index: number; part: any }
+  | { type: "response.output_text.delta"; item_id: string; output_index: number; content_index: number; delta: string }
+  | { type: "response.output_text.done"; item_id: string; output_index: number; content_index: number; text: string }
+  | { type: "response.function_call_arguments.delta"; item_id: string; output_index: number; content_index: number; delta: string }
+  | { type: "response.function_call_arguments.done"; item_id: string; output_index: number; content_index: number; arguments: string }
+  | { type: "response.content_part.done"; item_id: string; output_index: number; content_index: number; part: any }
+  | { type: "response.output_item.done"; output_index: number; item: any }
+  | { type: "response.completed"; response: ResponseOutput }
+  | { type: "error"; code: string; message: string; param: string | null };
+
 export {
   responsesCreateViaChatCompletions,
   ResponseCreateInput,
   ResponseOutput,
-  ResponseEvent,
+  ResponseInputItem,
+  ResponseItem,
 };

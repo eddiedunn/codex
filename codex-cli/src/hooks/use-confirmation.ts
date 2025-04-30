@@ -1,4 +1,4 @@
-import type { ReviewDecision } from "../utils/agent/review";
+import type { ReviewDecision } from "../utils/agent/review.js";
 import type React from "react";
 
 import { useState, useCallback, useRef } from "react";

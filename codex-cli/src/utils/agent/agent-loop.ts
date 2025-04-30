@@ -1,14 +1,13 @@
 import type { ReviewDecision } from "./review.js";
-import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
+import type { ApplyPatchCommand } from "../../approvals.js";
+import { AutoApprovalMode } from "../../utils/auto-approval-mode.js";
+export type ApprovalPolicy = AutoApprovalMode;
 import type { AppConfig } from "../config.js";
-import type { ResponseEvent } from "../responses.js";
-import type { McpClient } from "./mcp-client";
-import type {
-  ResponseItem,
-  ResponseCreateParams,
-  FunctionTool,
-} from "openai/resources/responses/responses.mjs";
+import type { ResponseEvent } from "../responses.js"; // Update import for ResponseEvent
+import type { ResponseItem } from "../responses.js"; // Update import for ResponseItem
 import type { Reasoning } from "openai/resources.mjs";
+import type { FunctionTool } from "openai/resources/responses/responses.mjs";
+import type { ResponseCreateParams } from "openai/resources/responses/responses.mjs";
 
 import {
   OPENAI_TIMEOUT_MS,
@@ -27,10 +26,12 @@ import {
   setSessionId,
 } from "../session.js";
 import { handleExecCommand } from "./handle-exec-command.js";
+import type { ExecInput } from "./sandbox/interface.js";
 import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
 import { existsSync } from "fs";
-import { join, homedir } from "os";
+import { join } from "path";
+import { homedir } from "os";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -147,7 +148,7 @@ export class AgentLoop {
    * all non‑system items exchanged so far so we can provide full context on
    * every request.
    */
-  private transcript: Array<ResponseInputItem> = [];
+  private transcript: Array<ResponseItem> = [];
   /** Function calls that were emitted by the model but never answered because
    *  the user cancelled the run.  We keep the `call_id`s around so the *next*
    *  request can send a dummy `function_call_output` that satisfies the
@@ -186,7 +187,6 @@ export class AgentLoop {
     if (this.terminated) {
       return;
     }
-
     // Reset the current stream to allow new requests
     this.currentStream = null;
     log(
@@ -373,53 +373,70 @@ export class AgentLoop {
   }
 
   private async handleFunctionCall(
-    item: ResponseInputItem,
-  ): Promise<Array<ResponseInputItem>> {
-    // Always extract call_id for output (spec compliance)
-    const callId = item.call_id ?? item.id;
+    item: ResponseItem,
+  ): Promise<Array<ResponseItem>> {
+    // Only extract call_id if item is a function_call
+    let callId: string | undefined = undefined;
+    if (item.type === "function_call") {
+      callId = item.call_id ?? item.id;
+    }
 
     // --- Robust normalization for tool call structure ---
     // Supports both flat (OpenAI legacy) and nested (OpenAI/MCP spec) tool calls
-    const toolName = item.function?.name ?? item.name;
-    const toolArgsRaw = item.function?.arguments ?? item.arguments ?? '{}';
-    let toolArgs: Record<string, unknown>;
-    try {
-      toolArgs = JSON.parse(toolArgsRaw);
-    } catch (err) {
-      // Always return error as JSON string for test and production best practice
-      return [{
-        type: 'function_call_output',
-        call_id: callId,
-        output: JSON.stringify({ error: `Invalid JSON arguments: ${String(err)}` })
-      }];
+    let fnName: string | undefined;
+    let fnArgs: Record<string, unknown> = {};
+    if (item.type === "function_call") {
+      // Use item.name and item.arguments directly (OpenAI format)
+      fnName = item.name;
+      // item.arguments may be string or object; parse if string
+      if (typeof item.arguments === "string") {
+        try {
+          fnArgs = JSON.parse(item.arguments);
+        } catch (err) {
+          return [{
+            type: 'function_call_output',
+            id: item.id,
+            call_id: callId ?? item.id,
+            output: JSON.stringify({ error: `Invalid JSON arguments: ${String(err)}` })
+          }];
+        }
+      } else if (typeof item.arguments === "object" && item.arguments !== null) {
+        fnArgs = item.arguments as Record<string, unknown>;
+      }
     }
 
-    // --- MCP DI pattern: always use DI if present, bypass registry ---
-    if (toolName && toolName.startsWith('mcp.') && this.invokeMcpTool) {
+    if (fnName && fnName.startsWith('mcp.') && this.invokeMcpTool) {
       try {
-        const result = await this.invokeMcpTool(toolName, toolArgs);
+        const result = await this.invokeMcpTool(fnName, fnArgs);
         return [{
           type: 'function_call_output',
-          call_id: callId,
-          output: JSON.stringify(result)
+          call_id: callId ?? '',
+          id: item.id,
+          output: JSON.stringify({ result }),
         }];
       } catch (err) {
-        // Always return error as JSON string
         return [{
           type: 'function_call_output',
-          call_id: callId,
-          output: JSON.stringify({ error: String(err) })
+          call_id: callId ?? '',
+          id: item.id,
+          output: JSON.stringify({ error: String(err) }),
         }];
       }
     }
 
-    if (toolName === "container.exec" || toolName === "shell") {
-      const {
-        outputText,
-        metadata,
-        additionalItems,
-      } = await handleExecCommand(
-        toolArgs,
+    if (fnName === "container.exec" || fnName === "shell") {
+      // Ensure fnArgs is an ExecInput (has cmd, workdir, timeoutInMillis)
+      // If not, return error
+      if (!fnArgs || typeof fnArgs !== 'object' || !('cmd' in fnArgs) || !('workdir' in fnArgs) || !('timeoutInMillis' in fnArgs)) {
+        return [{
+          type: 'function_call_output',
+          call_id: callId ?? '',
+          id: item.id,
+          output: JSON.stringify({ error: 'Invalid exec input: missing required fields (cmd, workdir, timeoutInMillis)' }),
+        }];
+      }
+      const execResult = await handleExecCommand(
+        fnArgs as ExecInput,
         this.config,
         this.approvalPolicy,
         this.additionalWritableRoots,
@@ -428,20 +445,27 @@ export class AgentLoop {
       );
       return [{
         type: 'function_call_output',
-        call_id: callId,
-        output: JSON.stringify({ output: outputText, metadata }),
-      }, ...(Array.isArray(additionalItems) ? additionalItems : [])];
+        call_id: callId ?? '',
+        id: item.id,
+        output: JSON.stringify({
+          output: execResult.outputText,
+          metadata: execResult.metadata,
+          exit_code: typeof execResult.metadata['exit_code'] === 'number' ? execResult.metadata['exit_code'] : undefined,
+          duration_seconds: typeof execResult.metadata['duration_seconds'] === 'number' ? execResult.metadata['duration_seconds'] : undefined,
+        }),
+      }];
     }
 
     return [{
       type: 'function_call_output',
-      call_id: callId,
+      call_id: callId ?? '',
+      id: item.id,
       output: 'no function found',
     }];
   }
 
   public async run(
-    input: Array<ResponseInputItem>,
+    input: Array<ResponseItem>,
     previousResponseId: string = "",
   ): Promise<void> {
     // ---------------------------------------------------------------------
@@ -495,17 +519,18 @@ export class AgentLoop {
       // we have to emit dummy tool outputs so that the API no longer expects
       // them.  We prepend them to the user‑supplied input so they appear
       // first in the conversation turn.
-      const abortOutputs: Array<ResponseInputItem> = [];
+      const abortOutputs: Array<ResponseItem> = [];
       if (this.pendingAborts.size > 0) {
         for (const id of this.pendingAborts) {
           abortOutputs.push({
             type: "function_call_output",
+            id,
             call_id: id,
             output: JSON.stringify({
               output: "aborted",
               metadata: { exit_code: 1, duration_seconds: 0 },
             }),
-          } as ResponseInputItem.FunctionCallOutput);
+          } as ResponseItem);
         }
         // Once converted the pending list can be cleared.
         this.pendingAborts.clear();
@@ -518,15 +543,15 @@ export class AgentLoop {
       // conversation, so we must include the *entire* transcript (minus system
       // messages) on every call.
 
-      let turnInput: Array<ResponseInputItem> = [];
+      let turnInput: Array<ResponseItem> = [];
       // Keeps track of how many items in `turnInput` stem from the existing
       // transcript so we can avoid re‑emitting them to the UI. Only used when
       // `disableResponseStorage === true`.
       let transcriptPrefixLen = 0;
 
       const stripInternalFields = (
-        item: ResponseInputItem,
-      ): ResponseInputItem => {
+        item: ResponseItem,
+      ): ResponseItem => {
         // Clone shallowly and remove fields that are not part of the public
         // schema expected by the OpenAI Responses API.
         // We shallow‑clone the item so that subsequent mutations (deleting
@@ -539,7 +564,7 @@ export class AgentLoop {
         // use `store: false`.
         delete clean["id"];
         delete clean["status"];
-        return clean as unknown as ResponseInputItem;
+        return clean as unknown as ResponseItem;
       };
 
       if (this.disableResponseStorage) {
@@ -620,23 +645,21 @@ export class AgentLoop {
                 // model does not need to see again in the next turn.
                 //   • function_call   – superseded by the forthcoming
                 //     function_call_output.
-                //   • reasoning       – internal only, never sent back.
                 //   • user messages   – we added these to the transcript when
                 //     building the first turnInput; stageItem would add a
                 //     duplicate.
                 if (
-                  (item as ResponseInputItem).type === "function_call" ||
-                  (item as ResponseInputItem).type === "reasoning" ||
-                  ((item as ResponseInputItem).type === "message" &&
+                  (item as ResponseItem).type === "function_call" ||
+                  ((item as ResponseItem).type === "message" &&
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     (item as any).role === "user")
                 ) {
                   return;
                 }
 
-                const clone: ResponseInputItem = {
-                  ...(item as unknown as ResponseInputItem),
-                } as ResponseInputItem;
+                const clone: ResponseItem = {
+                  ...(item as unknown as ResponseItem),
+                } as ResponseItem;
                 // The `duration_ms` field is only added to reasoning items to
                 // show elapsed time in the UI. It must not be forwarded back
                 // to the server.
@@ -920,7 +943,7 @@ export class AgentLoop {
         // eslint-disable-next-line no-constant-condition
         while (true) {
           try {
-            let newTurnInput: Array<ResponseInputItem> = [];
+            let newTurnInput: Array<ResponseItem> = [];
 
             // eslint-disable-next-line no-await-in-loop
             for await (const event of stream as AsyncIterable<ResponseEvent>) {
@@ -932,9 +955,8 @@ export class AgentLoop {
                 // 1) if it's a reasoning item, annotate it
                 type ReasoningItem = { type?: string; duration_ms?: number };
                 const maybeReasoning = item as ReasoningItem;
-                if (maybeReasoning.type === "reasoning") {
-                  maybeReasoning.duration_ms = Date.now() - thinkingStart;
-                }
+                // Removed handling of 'reasoning' type
+
                 if (item.type === "function_call") {
                   // Track outstanding tool call so we can abort later if needed.
                   // The item comes from the streaming response, therefore it has
@@ -1358,7 +1380,7 @@ export class AgentLoop {
             ],
           });
         } catch {
-          /* best‑effort – emitting the error message is best‑effort */
+          /* ignore */
         }
         this.onLoading(false);
         return;
@@ -1512,9 +1534,9 @@ export class AgentLoop {
 
   // we need until we can depend on streaming events
   private async processEventsWithoutStreaming(
-    output: Array<ResponseInputItem>,
+    output: Array<ResponseItem>,
     emitItem: (item: ResponseItem) => void,
-  ): Promise<Array<ResponseInputItem>> {
+  ): Promise<Array<ResponseItem>> {
     // If the agent has been canceled we should short‑circuit immediately to
     // avoid any further processing (including potentially expensive tool
     // calls). Returning an empty array ensures the main run‑loop terminates
@@ -1522,7 +1544,7 @@ export class AgentLoop {
     if (this.canceled) {
       return [];
     }
-    const turnInput: Array<ResponseInputItem> = [];
+    const turnInput: Array<ResponseItem> = [];
     for (const item of output) {
       if (item.type === "function_call") {
         if (alreadyProcessedResponses.has(item.id)) {
@@ -1587,13 +1609,10 @@ You MUST adhere to the following criteria when executing the task:
     - Do NOT show the full contents of large files you have already written, unless the user explicitly asks for them.`;
 
 function filterToApiMessages(
-  items: Array<ResponseInputItem>,
-): Array<ResponseInputItem> {
+  items: Array<ResponseItem>,
+): Array<ResponseItem> {
   return items.filter((it) => {
     if (it.type === "message" && it.role === "system") {
-      return false;
-    }
-    if (it.type === "reasoning") {
       return false;
     }
     return true;

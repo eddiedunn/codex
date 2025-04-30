@@ -1,4 +1,4 @@
-import type { ResponseItem } from "openai/resources/responses/responses.mjs";
+import type { ResponseItem } from "./responses.js";
 
 import { approximateTokensUsed } from "./approximate-tokens-used.js";
 import {
@@ -6,7 +6,7 @@ import {
   OPENAI_PROJECT,
   getBaseUrl,
   getApiKey,
-} from "./config";
+} from "./config.js";
 import { type SupportedModelId, openAiModelInfo } from "./model-info.js";
 import OpenAI from "openai";
 

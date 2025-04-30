@@ -10,7 +10,7 @@ const NODE_BIN = process.execPath;
 describe('Templates CLI Pagination E2E', () => {
   it('should paginate templates list on user input', async () => {
     // Spawn: npx ts-node src/cli/commands/resources/templates.tsx
-    const pty = nodepty.spawn('npx', ['ts-node', CLI_PATH], {
+    const pty = nodepty.spawn(NODE_BIN, ['node_modules/ts-node/dist/bin.js', CLI_PATH], {
       name: 'xterm-color',
       cols: 80,
       rows: 30,

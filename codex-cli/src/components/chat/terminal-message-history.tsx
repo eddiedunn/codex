@@ -1,7 +1,7 @@
 import type { OverlayModeType } from "./terminal-chat.js";
 import type { TerminalHeaderProps } from "./terminal-header.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
-import type { ResponseItem } from "openai/resources/responses/responses.mjs";
+import type { ResponseItem } from "../utils/responses.js";
 
 import TerminalChatResponseItem from "./terminal-chat-response-item.js";
 import TerminalHeader from "./terminal-header.js";

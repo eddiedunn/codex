@@ -1,7 +1,7 @@
 import type {
-  ResponseItem,
   ResponseOutputItem,
-} from "openai/resources/responses/responses.mjs";
+  ResponseItem,
+} from "../utils/responses.js";
 
 /**
  * Build a GitHub issues‐new URL that pre‑fills the Codex 2‑bug‑report.yml

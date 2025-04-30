@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { SLASH_COMMANDS, type SlashCommand } from "../src/utils/slash-commands";
+import { SLASH_COMMANDS, type SlashCommand } from "../src/utils/slash-commands.js";
 
 test("SLASH_COMMANDS includes expected commands", () => {
   const commands = SLASH_COMMANDS.map((c: SlashCommand) => c.command);

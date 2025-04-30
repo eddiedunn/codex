@@ -5,7 +5,7 @@ import { AutoApprovalMode } from "../src/utils/auto-approval-mode.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { test, expect, beforeEach, afterEach, vi } from "vitest";
-import { providers as defaultProviders } from "../src/utils/providers";
+import { providers as defaultProviders } from "../src/utils/providers.js";
 
 // In‑memory FS store
 let memfs: Record<string, string> = {};

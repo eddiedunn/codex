@@ -1,5 +1,5 @@
-import { parseApplyPatch } from "../../parse-apply-patch";
-import { shortenPath } from "../../utils/short-path";
+import { parseApplyPatch } from "../../parse-apply-patch.js";
+import { shortenPath } from "../../utils/short-path.js";
 import chalk from "chalk";
 import { Text } from "ink";
 import React from "react";

@@ -1,4 +1,4 @@
-import type { AgentLoop } from "../../utils/agent/agent-loop.js";
+import type { AutoApprovalMode } from "../../utils/auto-approval-mode.js";
 
 import { Box, Text } from "ink";
 import path from "node:path";
@@ -10,9 +10,9 @@ export interface TerminalHeaderProps {
   PWD: string;
   model: string;
   provider?: string;
-  approvalPolicy: string;
-  colorsByPolicy: Record<string, string | undefined>;
-  agent?: AgentLoop;
+  approvalPolicy: AutoApprovalMode;
+  colorsByPolicy: Record<AutoApprovalMode, string | undefined>;
+  // agent?: AgentLoop;
   initialImagePaths?: Array<string>;
   flexModeEnabled?: boolean;
 }
@@ -25,7 +25,7 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
   provider = "openai",
   approvalPolicy,
   colorsByPolicy,
-  agent,
+  // agent,
   initialImagePaths,
   flexModeEnabled = false,
 }) => {
@@ -40,40 +40,13 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
         </Text>
       ) : (
         <>
-          <Box borderStyle="round" paddingX={1} width={64}>
+          <Box flexDirection="column">
             <Text>
-              ● OpenAI <Text bold>Codex</Text>{" "}
-              <Text dimColor>
-                (research preview) <Text color="blueBright">v{version}</Text>
-              </Text>
+              <Text bold color="yellow">● Codex</Text> v{version} - {PWD}
             </Text>
-          </Box>
-          <Box
-            borderStyle="round"
-            borderColor="gray"
-            paddingX={1}
-            width={64}
-            flexDirection="column"
-          >
             <Text>
-              localhost <Text dimColor>session:</Text>{" "}
-              <Text color="magentaBright" dimColor>
-                {agent?.sessionId ?? "<no-session>"}
-              </Text>
-            </Text>
-            <Text dimColor>
-              <Text color="blueBright">↳</Text> workdir: <Text bold>{PWD}</Text>
-            </Text>
-            <Text dimColor>
-              <Text color="blueBright">↳</Text> model: <Text bold>{model}</Text>
-            </Text>
-            <Text dimColor>
-              <Text color="blueBright">↳</Text> provider:{" "}
-              <Text bold>{provider}</Text>
-            </Text>
-            <Text dimColor>
-              <Text color="blueBright">↳</Text> approval:{" "}
-              <Text bold color={colorsByPolicy[approvalPolicy]}>
+              <Text color="gray">Model:</Text> {model} ({provider})
+              <Text color={colorsByPolicy[approvalPolicy]}>
                 {approvalPolicy}
               </Text>
             </Text>

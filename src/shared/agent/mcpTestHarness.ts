@@ -1,7 +1,7 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { getUUID } from './uuid.js';
+import { getUUID } from '../../uuid.js';
 
 const LOG_DIR = path.resolve(__dirname, '../../../../test-logs');
 if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });

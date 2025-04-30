@@ -1,7 +1,7 @@
-import type { ResponseItem } from "openai/resources/responses/responses.mjs";
+import type { ResponseItem } from "../utils/responses.js";
 
 import { Box, Text, useInput } from "ink";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 type Props = {
   items: Array<ResponseItem>;

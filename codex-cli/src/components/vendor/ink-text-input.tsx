@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, useInput } from "ink";
 import chalk from "chalk";
 import type { Except } from "type-fest";

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { render } from 'ink-testing-library';
+import { render } from 'ink-testing-library'; // Update import to v4+
 import { act } from 'react-dom/test-utils';
 import TemplatesList from './templates';
 

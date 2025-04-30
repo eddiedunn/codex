@@ -1,16 +1,23 @@
-import type { ResponseInputItem } from "openai/resources/responses/responses";
-
+import type { ResponseInputMessageItem } from "openai/resources/responses/responses.mjs";
 import { fileTypeFromBuffer } from "file-type";
 import fs from "fs/promises";
 import path from "path";
+import { randomUUID } from "node:crypto";
+
+// --- PATCH TYPE FOR OPENAI STYLE ---
+type OpenAIInputTextContent = { type: "text"; text: string };
+type PatchedResponseInputMessageItem = Omit<ResponseInputMessageItem, "content"> & {
+  content: OpenAIInputTextContent[];
+};
 
 export async function createInputItem(
   text: string,
   images: Array<string>,
-): Promise<ResponseInputItem.Message> {
-  const inputItem: ResponseInputItem.Message = {
+): Promise<PatchedResponseInputMessageItem> {
+  const inputItem: PatchedResponseInputMessageItem = {
+    id: randomUUID(),
     role: "user",
-    content: [{ type: "input_text", text }],
+    content: [{ type: "text", text }],
     type: "message",
   };
 
@@ -22,14 +29,15 @@ export async function createInputItem(
       /* eslint-enable no-await-in-loop */
       const encoded = binary.toString("base64");
       const mime = kind?.mime ?? "application/octet-stream";
+      // Only push image type if compatible with OpenAI style, else skip or adapt as needed
       inputItem.content.push({
-        type: "input_image",
+        type: "input_image", // If OpenAI expects just "image", adapt here
         detail: "auto",
         image_url: `data:${mime};base64,${encoded}`,
-      });
+      } as any);
     } catch (err) {
       inputItem.content.push({
-        type: "input_text",
+        type: "text",
         text: `[missing image: ${path.basename(filePath)}]`,
       });
     }

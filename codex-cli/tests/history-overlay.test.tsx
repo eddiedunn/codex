@@ -12,13 +12,13 @@
  * -------------------------------------------------------------------------- */
 
 import { describe, it, expect, vi } from "vitest";
-import { render } from "ink-testing-library";
+import { render } from 'ink-testing-library';
 import React from "react";
 import type {
   ResponseInputMessageItem,
   ResponseFunctionToolCallItem,
 } from "openai/resources/responses/responses.mjs";
-import HistoryOverlay from "../src/components/history-overlay";
+import HistoryOverlay from "../src/components/history-overlay.js";
 
 // ---------------------------------------------------------------------------
 // Module mocks *must* be registered *before* the module under test is imported

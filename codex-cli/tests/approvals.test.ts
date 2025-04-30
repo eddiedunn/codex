@@ -1,6 +1,6 @@
-import type { SafetyAssessment } from "../src/approvals";
+import type { SafetyAssessment } from "../src/approvals.js";
 
-import { canAutoApprove } from "../src/approvals";
+import { canAutoApprove } from "../src/approvals.js";
 import { describe, test, expect } from "vitest";
 
 describe("canAutoApprove()", () => {

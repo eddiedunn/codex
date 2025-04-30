@@ -97,6 +97,7 @@ describe("AgentLoop deduplicates output items", () => {
 
     const userMsg = [
       {
+        id: "test-user-message-dedupe-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "hi" }],

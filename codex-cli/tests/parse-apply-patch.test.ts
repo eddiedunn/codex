@@ -1,4 +1,4 @@
-import { parseApplyPatch } from "../src/parse-apply-patch";
+import { parseApplyPatch } from "../src/parse-apply-patch.js";
 import { expect, test, describe } from "vitest";
 
 // Helper function to unwrap a non‑null result in tests that expect success.

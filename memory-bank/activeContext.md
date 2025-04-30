@@ -366,6 +366,22 @@ _Last updated: 2025-04-28 18:39 EDT_
 
 ---
 
+# Active Context: TypeScript/ESM Build Milestone (April 30, 2025)
+
+## Milestone Summary
+- All TypeScript import errors and ESM/CJS compatibility issues resolved for CLI build.
+- Vite config migrated to ESM output (`format: 'es'`) to support dependencies with top-level await.
+- Node.js built-ins marked as external in Vite/Rollup config, preventing browser polyfills and ensuring Node.js compatibility.
+- All local imports use explicit `.js` extensions in source and build.
+- Build output confirmed in `dist/`; CLI and tests run without module or import errors.
+- Canonical build/test patterns and troubleshooting steps documented in memory bank.
+
+## Next Steps
+- Full test suite run to verify CLI/agent logic post-build.
+- Continue documenting best practices and new patterns as they emerge.
+
+---
+
 # Immediate Next Steps (as of April 28, 2025)
 - Finalize E2E test for tool calling with a real LLM in the REPL.
 - Ensure memory bank and documentation are kept fully up to date as patterns evolve.

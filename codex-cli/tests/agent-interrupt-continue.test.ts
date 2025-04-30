@@ -54,6 +54,7 @@ describe("Agent interrupt and continue", () => {
     // First user message
     const firstMessage = [
       {
+        id: "test-user-message-interrupt-continue-1",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "first message" }],
@@ -98,6 +99,7 @@ describe("Agent interrupt and continue", () => {
     // Second user message
     const secondMessage = [
       {
+        id: "test-user-message-interrupt-continue-2",
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "second message" }],

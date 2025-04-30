@@ -1,7 +1,7 @@
 import type { TerminalChatSession } from "../../utils/session.js";
-import type { ResponseItem } from "openai/resources/responses/responses";
+import type { ResponseItem } from "../../utils/responses.js";
 
-import TerminalChatResponseItem from "./terminal-chat-response-item";
+import TerminalChatResponseItem from "./terminal-chat-response-item.js";
 import { Box, Text } from "ink";
 import React from "react";
 

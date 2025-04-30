@@ -1,9 +1,9 @@
 // Force PATH to include the node binary for all subprocesses
 process.env.PATH = '/Users/tmwsiy/.nvm/versions/node/v22.11.0/bin:' + (process.env.PATH ?? '');
 
-import { MinimalMcpClient } from './mcp-client';
+import { MinimalMcpClient } from './mcp-client.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { startMockServer, MockServerHandle } from './mcpTestHarness';
+import { startMockServer, MockServerHandle } from './mcpTestHarness.js';
 
 let mockServer: MockServerHandle | null = null;
 
@@ -257,10 +257,7 @@ describe('diagnostics: PATH and node resolution', () => {
     const { spawn } = await import('child_process');
     // Spawn a subprocess to print PATH and which node
     await new Promise((resolve) => {
-      const proc = spawn('bash', ['-c', 'echo SUBPROCESS_PATH:$PATH; which node || echo NODE_NOT_FOUND'], {
-        env: process.env,
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
+      const proc = spawn(process.execPath, ['-v'], { stdio: ['ignore', 'pipe', 'pipe'] });
       let out = '';
       let err = '';
       proc.stdout.on('data', (data) => { out += data.toString(); });
@@ -281,7 +278,7 @@ describe('diagnostics: node PATH for subprocess', () => {
     // Spawn a subprocess to check node
     const { spawn } = await import('child_process');
     await new Promise((resolve) => {
-      const proc = spawn('node', ['-v'], { stdio: ['ignore', 'pipe', 'pipe'] });
+      const proc = spawn(process.execPath, ['-v'], { stdio: ['ignore', 'pipe', 'pipe'] });
       let out = '';
       let err = '';
       proc.stdout.on('data', (data) => { out += data.toString(); });
@@ -304,7 +301,7 @@ describe('CLI user interaction (MCP integration)', () => {
     const mockServer = startMockServer();
     await new Promise(res => setTimeout(res, 300));
     // Start the CLI process
-    const cli = spawn('node', [__filename], {
+    const cli = spawn(process.execPath, [__filename], {
       cwd: __dirname,
       env: {},
       stdio: ['pipe', 'pipe', 'pipe'],

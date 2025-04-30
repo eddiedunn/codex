@@ -1,4 +1,4 @@
-import type { OverlayModeType } from "./terminal-chat";
+import type { OverlayModeType } from "./terminal-chat.js";
 import type { TerminalRendererOptions } from "marked-terminal";
 import type {
   ResponseFunctionToolCallItem,
@@ -7,10 +7,10 @@ import type {
   ResponseItem,
   ResponseOutputMessage,
   ResponseReasoningItem,
-} from "openai/resources/responses/responses";
+} from "openai/resources/responses/responses.mjs";
 
-import { useTerminalSize } from "../../hooks/use-terminal-size";
-import { parseToolCall, parseToolCallOutput } from "../../utils/parsers";
+import { useTerminalSize } from "../../hooks/use-terminal-size.js";
+import { parseToolCall, parseToolCallOutput } from "../../utils/parsers.js";
 import chalk, { type ForegroundColorName } from "chalk";
 import { Box, Text } from "ink";
 import { parse, setOptions } from "marked";

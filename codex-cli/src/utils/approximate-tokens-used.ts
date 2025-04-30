@@ -1,4 +1,4 @@
-import type { ResponseItem } from "openai/resources/responses/responses.mjs";
+import type { ResponseItem } from "./responses.js";
 
 /**
  * Roughly estimate the number of language‑model tokens represented by a list

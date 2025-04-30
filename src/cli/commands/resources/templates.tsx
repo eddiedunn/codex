@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Text } from 'ink';
 import { fetchPaginated, PaginationState } from '../../../agent/pagination.js';
 import { PaginatedList } from '../../../ui/PaginatedList.js';
-import { MinimalMcpClient } from '../../../../codex-cli/src/utils/agent/mcp-client';
+import { MinimalMcpClient } from '../../shared/agent/mcp-client.js';
 import { render } from 'ink';
 
 console.log('[DIAG] CLI ENTRYPOINT REACHED');
@@ -111,7 +111,7 @@ export default function TemplatesList() {
         page,
         cursor,
       }}
-      renderItem={(item, idx) => <Text key={idx}>{item.name}</Text>}
+      renderItem={(item: any, idx: number) => <Text key={idx}>{item.name}</Text>}
       onNext={() => {
         if (process.env['VITEST']) {
           // eslint-disable-next-line no-console

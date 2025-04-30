@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { MinimalMcpClient } from '../src/utils/agent/mcp-client';
-import { startMockServer, MockServerHandle } from '../src/utils/agent/mcpTestHarness';
+import { MinimalMcpClient } from '../src/utils/agent/mcp-client.js';
+import { startMockServer, MockServerHandle } from '../src/utils/agent/mcpTestHarness.js';
 
 let mockServer: MockServerHandle | null = null;
 let mcpClient: MinimalMcpClient;

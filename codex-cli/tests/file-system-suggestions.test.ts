@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { getFileSystemSuggestions } from "../src/utils/file-system-suggestions";
+import { getFileSystemSuggestions } from "../src/utils/file-system-suggestions.js";
 
 vi.mock("fs");
 vi.mock("os");
